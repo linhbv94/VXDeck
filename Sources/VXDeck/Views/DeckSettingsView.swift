@@ -278,88 +278,124 @@ public struct DeckSettingsView: View {
 
                 Divider().background(Color.white.opacity(0.08))
 
-                HStack(spacing: 12) {
-                    Button(action: checkForUpdates) {
-                        HStack(spacing: 6) {
-                            if isCheckingUpdate {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                            }
-                            Text(isCheckingUpdate ? "Đang kiểm tra..." : "Kiểm tra bản cập nhật")
+                if hasNewUpdate {
+                    // Trạng thái: Phát hiện bản cập nhật mới
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .foregroundColor(.cyan)
+                                .font(.system(size: 13, weight: .bold))
+                            Text(updateStatusMessage)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.cyan)
                         }
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1)))
-                        .foregroundColor(.white)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isCheckingUpdate)
 
-                    if hasNewUpdate {
+                        // Nút hành động chính 1-chạm (Full width, không wrap chữ)
                         Button(action: applyUpdateNow) {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 if isApplyingUpdate {
                                     ProgressView()
                                         .controlSize(.small)
-                                    Text("Đang cập nhật...")
+                                    Text("Đang tải & cài đặt bản cập nhật...")
+                                        .font(.system(size: 12, weight: .semibold))
                                 } else {
-                                    Image(systemName: "sparkles")
-                                    Text("Cập nhật & Khởi động lại")
+                                    Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text("Cập nhật & Khởi động lại ngay")
+                                        .font(.system(size: 12, weight: .bold))
                                 }
                             }
-                            .font(.system(size: 12, weight: .semibold))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.cyan))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(Color.cyan))
                             .foregroundColor(.black)
                         }
                         .buttonStyle(.plain)
                         .disabled(isApplyingUpdate)
 
-                        if let dmg = latestDmgURL {
-                            Button(action: {
-                                NSWorkspace.shared.open(dmg)
-                            }) {
+                        // Dòng hành động phụ: Kiểm tra lại + Xem trên GitHub
+                        HStack {
+                            Button(action: checkForUpdates) {
                                 HStack(spacing: 5) {
-                                    Image(systemName: "arrow.down.circle")
-                                    Text("Tải .dmg thủ công")
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Kiểm tra lại")
                                 }
                                 .font(.system(size: 11, weight: .medium))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1)))
-                                .foregroundColor(.white)
+                                .foregroundColor(Color(red: 0.7, green: 0.75, blue: 0.82))
                             }
                             .buttonStyle(.plain)
-                            .disabled(isApplyingUpdate)
+                            .disabled(isCheckingUpdate || isApplyingUpdate)
+
+                            Spacer()
+
+                            if let url = latestReleaseURL {
+                                Button(action: {
+                                    NSWorkspace.shared.open(url)
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Text("Xem chi tiết trên GitHub")
+                                        Image(systemName: "arrow.up.right")
+                                    }
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.cyan)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
+                        .padding(.top, 2)
+                    }
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.cyan.opacity(0.08)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.cyan.opacity(0.25), lineWidth: 1))
+                } else {
+                    // Trạng thái: Đang là bản mới nhất hoặc chưa kiểm tra
+                    HStack(spacing: 12) {
+                        Button(action: checkForUpdates) {
+                            HStack(spacing: 6) {
+                                if isCheckingUpdate {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                }
+                                Text(isCheckingUpdate ? "Đang kiểm tra..." : "Kiểm tra bản cập nhật")
+                                    .lineLimit(1)
+                            }
+                            .font(.system(size: 12, weight: .medium))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1)))
+                            .foregroundColor(.white)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isCheckingUpdate)
 
                         if let url = latestReleaseURL {
                             Button(action: {
                                 NSWorkspace.shared.open(url)
                             }) {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "globe")
+                                HStack(spacing: 4) {
                                     Text("Xem trên GitHub")
+                                    Image(systemName: "arrow.up.right")
                                 }
-                                .font(.system(size: 12, weight: .medium))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1)))
-                                .foregroundColor(.white)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Color(red: 0.7, green: 0.75, blue: 0.82))
                             }
                             .buttonStyle(.plain)
-                            .disabled(isApplyingUpdate)
                         }
+
+                        Spacer()
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green.opacity(0.8))
+                            .font(.system(size: 11))
+                        Text(updateStatusMessage)
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(red: 0.6, green: 0.65, blue: 0.72))
                     }
                 }
-
-                Text(updateStatusMessage)
-                    .font(.system(size: 11))
-                    .foregroundColor(hasNewUpdate ? .cyan : Color(red: 0.6, green: 0.65, blue: 0.72))
 
                 if let notes = releaseNotes, hasNewUpdate {
                     VStack(alignment: .leading, spacing: 6) {

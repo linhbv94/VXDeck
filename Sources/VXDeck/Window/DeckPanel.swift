@@ -2,17 +2,18 @@ import AppKit
 import SwiftUI
 import VXDeckCore
 
-public final class DeckPanel: NSPanel {
+public final class DeckPanel: NSPanel, NSWindowDelegate {
     private var eventMonitor: EventMonitor?
 
     public init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
 
+        self.delegate = self
         self.isFloatingPanel = true
         self.level = .floating
         self.isOpaque = false
@@ -22,6 +23,42 @@ public final class DeckPanel: NSPanel {
         self.animationBehavior = .utilityWindow
 
         setupOutsideClickMonitor()
+        setupResignActiveMonitor()
+        setupResignKeyMonitor()
+    }
+
+    private func setupResignKeyMonitor() {
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: self,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self, self.isVisible else { return }
+                if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
+                self.hidePanel()
+            }
+        }
+    }
+
+    private func setupResignActiveMonitor() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self, self.isVisible else { return }
+                if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
+                self.hidePanel()
+            }
+        }
+    }
+
+    public func windowDidResignKey(_ notification: Notification) {
+        guard self.isVisible else { return }
+        if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
+        self.hidePanel()
     }
 
     public override var canBecomeKey: Bool {
@@ -101,13 +138,15 @@ public final class DeckPanel: NSPanel {
         let visibleFrame = screen.visibleFrame
 
         let width: CGFloat = min(620, visibleFrame.width - 40)
-        let currentHeight = min(max(self.frame.height > 100 ? self.frame.height : 460, 260), min(760, visibleFrame.height * 0.85))
+        let fittingHeight = self.contentView?.fittingSize.height ?? 460
+        let currentHeight = min(max(fittingHeight > 100 ? fittingHeight : 460, 250), min(760, visibleFrame.height * 0.85))
 
         // Position horizontally centered, vertically in the lower half above the Dock
         let x = visibleFrame.origin.x + (visibleFrame.width - width) / 2
         let y = max(visibleFrame.origin.y + 40, visibleFrame.origin.y + (visibleFrame.height - currentHeight) * 0.35)
 
         self.setFrame(NSRect(x: x, y: y, width: width, height: currentHeight), display: true)
+        self.invalidateShadow()
 
         DeckStore.shared.resetWindowSession()
         DeckStore.shared.refreshAvailability()
@@ -123,6 +162,7 @@ public final class DeckPanel: NSPanel {
         if DeckStore.shared.isEditMode {
             DeckStore.shared.setEditMode(false)
         }
+        NSApp.terminate(nil)
     }
 
     public func togglePanel() {

@@ -29,8 +29,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        // Specification rule: Dock activation is ALWAYS Show / Bring to Front
-        panel?.showPanel()
+        if let panel = panel, panel.isVisible {
+            panel.hidePanel()
+        } else {
+            panel?.showPanel()
+        }
         return false
     }
 

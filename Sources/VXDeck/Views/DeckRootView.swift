@@ -49,14 +49,13 @@ public struct DeckRootView: View {
         .frame(width: 620)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(red: 0.059, green: 0.067, blue: 0.09).opacity(0.92))
+                .fill(Color(red: 0.059, green: 0.067, blue: 0.09).opacity(0.98))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(Color.white.opacity(0.10), lineWidth: 1)
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: Color.black.opacity(0.55), radius: 30, x: 0, y: 15)
         .sheet(isPresented: $store.showAddCollectionDialog) {
             VStack(spacing: 16) {
                 Text("Tạo Bộ Sưu Tập Mới")

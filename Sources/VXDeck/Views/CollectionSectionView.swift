@@ -56,10 +56,12 @@ public struct CollectionSectionView: View {
                 if store.isEditMode {
                     HStack(spacing: 6) {
                         Button(action: {
-                            titleDraft = collection.title
-                            isEditingTitle.toggle()
-                            if !isEditingTitle {
+                            if isEditingTitle {
                                 store.updateCollectionTitle(collectionId: collection.id, title: titleDraft)
+                                isEditingTitle = false
+                            } else {
+                                titleDraft = collection.title
+                                isEditingTitle = true
                             }
                         }) {
                             Image(systemName: isEditingTitle ? "checkmark" : "pencil")
@@ -68,7 +70,7 @@ public struct CollectionSectionView: View {
                                 .padding(4)
                         }
                         .buttonStyle(.plain)
-                        .help("Đổi tên nhóm")
+                        .help(isEditingTitle ? "Lưu tên mới" : "Đổi tên nhóm")
 
                         Button(action: {
                             store.isModalOpen = true
@@ -106,7 +108,8 @@ public struct CollectionSectionView: View {
                         onLaunchRequested: onLaunchRequested
                     )
                     .onDrag {
-                        NSItemProvider(object: "\(collection.id.uuidString):\(item.id.uuidString)" as NSString)
+                        guard store.isEditMode else { return NSItemProvider() }
+                        return NSItemProvider(object: "\(collection.id.uuidString):\(item.id.uuidString)" as NSString)
                     }
                     .onDrop(of: [UTType.text], isTargeted: nil) { providers in
                         handleDrop(providers: providers, targetItemId: item.id)
@@ -146,26 +149,33 @@ public struct CollectionSectionView: View {
             }
 
             DispatchQueue.main.async {
-                if sourceColId == collection.id {
+                guard self.store.isEditMode else { return }
+
+                // Resolve strictly against current store collections
+                guard let sourceCol = self.store.collections.first(where: { $0.id == sourceColId }),
+                      let currentTargetCol = self.store.collections.first(where: { $0.id == self.collection.id }),
+                      let sourceIndex = sourceCol.items.firstIndex(where: { $0.id == draggedItemId }) else {
+                    return
+                }
+
+                if sourceColId == self.collection.id {
                     // Reorder within same collection
-                    if let sourceIndex = collection.items.firstIndex(where: { $0.id == draggedItemId }) {
-                        let targetIndex: Int
-                        if let targetId = targetItemId, let idx = collection.items.firstIndex(where: { $0.id == targetId }) {
-                            targetIndex = idx
-                        } else {
-                            targetIndex = collection.items.count
-                        }
-                        store.reorderItems(inCollectionId: collection.id, from: sourceIndex, to: targetIndex)
+                    let targetIndex: Int
+                    if let targetId = targetItemId, let idx = currentTargetCol.items.firstIndex(where: { $0.id == targetId }) {
+                        targetIndex = idx
+                    } else {
+                        targetIndex = currentTargetCol.items.count
                     }
+                    self.store.reorderItems(inCollectionId: self.collection.id, from: sourceIndex, to: targetIndex)
                 } else {
                     // Move across collections
                     let targetIndex: Int? = targetItemId.flatMap { id in
-                        collection.items.firstIndex(where: { $0.id == id })
+                        currentTargetCol.items.firstIndex(where: { $0.id == id })
                     }
-                    store.moveItem(
+                    self.store.moveItem(
                         itemId: draggedItemId,
                         fromCollectionId: sourceColId,
-                        toCollectionId: collection.id,
+                        toCollectionId: self.collection.id,
                         targetIndex: targetIndex
                     )
                 }

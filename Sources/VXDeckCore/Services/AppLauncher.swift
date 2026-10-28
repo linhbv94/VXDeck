@@ -20,29 +20,36 @@ public final class AppLauncher: @unchecked Sendable {
     private init() {}
 
     /// Resolve the actual executable URL for the given AppItemModel.
-    /// Follows Codex recommendation: verify bundle identifier if path exists to prevent launching swapped apps.
+    /// Strictly verifies identity: if expected bundleId is provided, path MUST match that bundleId.
+    /// If path is missing, moved, or mismatched, fall back to LaunchServices lookup by bundle identifier.
     public func resolveTargetURL(for item: AppItemModel) -> URL? {
         let fileManager = FileManager.default
         let url = URL(fileURLWithPath: item.path)
 
-        if fileManager.fileExists(atPath: item.path) {
+        if fileManager.fileExists(atPath: item.path) && url.pathExtension.lowercased() == "app" {
             if let expectedBundleId = item.bundleId, !expectedBundleId.isEmpty {
                 if let bundle = Bundle(url: url), let actualBundleId = bundle.bundleIdentifier {
                     if actualBundleId == expectedBundleId {
                         return url
                     }
-                } else {
-                    return url
+                    // Mismatched bundle ID at path! Do not launch wrong app.
                 }
             } else {
-                return url
+                // No expected bundle ID saved; verify it's a readable bundle
+                if Bundle(url: url) != nil {
+                    return url
+                }
             }
         }
 
         // Fallback: look up by Bundle Identifier via NSWorkspace
         if let bundleId = item.bundleId, !bundleId.isEmpty {
             if let resolvedURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-                return resolvedURL
+                // Verify resolved bundle
+                if let resolvedBundle = Bundle(url: resolvedURL),
+                   resolvedBundle.bundleIdentifier == bundleId {
+                    return resolvedURL
+                }
             }
         }
 

@@ -3,8 +3,6 @@ import VXDeckCore
 
 public struct DeckHeaderView: View {
     @EnvironmentObject var store: DeckStore
-    @LocalState private var showAddGroupDialog = false
-    @LocalState private var newGroupTitle = ""
 
     public var body: some View {
         HStack(spacing: 12) {
@@ -32,8 +30,7 @@ public struct DeckHeaderView: View {
                 if store.isEditMode {
                     Button(action: {
                         store.isModalOpen = true
-                        newGroupTitle = ""
-                        showAddGroupDialog = true
+                        store.showAddCollectionDialog = true
                     }) {
                         HStack(spacing: 5) {
                             Image(systemName: "plus")
@@ -51,37 +48,6 @@ public struct DeckHeaderView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Tạo nhóm bộ sưu tập mới")
-                    .sheet(isPresented: $showAddGroupDialog) {
-                        VStack(spacing: 16) {
-                            Text("Tạo Bộ Sưu Tập Mới")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
-
-                            TextField("Ví dụ: Thiết Kế, Lập Trình, Game...", text: $newGroupTitle)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 260)
-
-                            HStack(spacing: 12) {
-                                Button("Hủy") {
-                                    store.isModalOpen = false
-                                    showAddGroupDialog = false
-                                }
-                                .keyboardShortcut(.cancelAction)
-
-                                Button("Tạo") {
-                                    store.isModalOpen = false
-                                    showAddGroupDialog = false
-                                    store.createCollection(title: newGroupTitle)
-                                }
-                                .keyboardShortcut(.defaultAction)
-                                .buttonStyle(.borderedProminent)
-                                .tint(.cyan)
-                            }
-                        }
-                        .padding(20)
-                        .frame(width: 300)
-                        .background(Color(red: 0.1, green: 0.12, blue: 0.16))
-                    }
                 }
 
                 // Edit Mode Toggle Button

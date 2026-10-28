@@ -3,12 +3,16 @@ import Foundation
 public actor ConfigManager {
     public static let shared = ConfigManager()
 
-    public private(set) var revision: Int = 0
+    public private(set) var lastSavedRevision: Int = 0
     private let fileManager = FileManager.default
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let customDirectoryURL: URL?
 
-    private var configDirectoryURL: URL {
+    public var configDirectoryURL: URL {
+        if let custom = customDirectoryURL {
+            return custom
+        }
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return appSupport.appendingPathComponent("VXDeck", isDirectory: true)
     }
@@ -21,7 +25,8 @@ public actor ConfigManager {
         return configDirectoryURL.appendingPathComponent("deck_config.json.bak", isDirectory: false)
     }
 
-    public init() {
+    public init(customDirectoryURL: URL? = nil) {
+        self.customDirectoryURL = customDirectoryURL
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -53,13 +58,19 @@ public actor ConfigManager {
         let path = configFileURL.path
         if !fileManager.fileExists(atPath: path) {
             let seed = DeckConfig.defaultSeed()
-            saveConfigSync(seed)
+            saveConfigSync(seed, revision: 1)
             return seed
         }
 
         do {
             let data = try Data(contentsOf: configFileURL)
             let config = try decoder.decode(DeckConfig.self, from: data)
+            // Validate minimum required schema integrity
+            if config.schemaVersion < 1 {
+                throw DecodingError.dataCorrupted(
+                    DecodingError.Context(codingPath: [], debugDescription: "Invalid schema version")
+                )
+            }
             return config
         } catch {
             print("[VXDeck] Corrupted config file detected: \(error)")
@@ -68,15 +79,16 @@ public actor ConfigManager {
             // Try restoring from .bak
             if fileManager.fileExists(atPath: backupFileURL.path) {
                 if let backupData = try? Data(contentsOf: backupFileURL),
-                   let backupConfig = try? decoder.decode(DeckConfig.self, from: backupData) {
+                   let backupConfig = try? decoder.decode(DeckConfig.self, from: backupData),
+                   backupConfig.schemaVersion >= 1 {
                     print("[VXDeck] Successfully restored config from backup file.")
-                    saveConfigSync(backupConfig)
+                    saveConfigSync(backupConfig, revision: 1)
                     return backupConfig
                 }
             }
 
             let seed = DeckConfig.defaultSeed()
-            saveConfigSync(seed)
+            saveConfigSync(seed, revision: 1)
             return seed
         }
     }
@@ -88,7 +100,13 @@ public actor ConfigManager {
         try? fileManager.moveItem(at: configFileURL, to: corruptURL)
     }
 
-    public func saveConfig(_ config: DeckConfig) throws {
+    public func saveConfig(_ config: DeckConfig, revision: Int) throws {
+        // Enforce monotonic revision check to guarantee newest snapshot wins
+        if revision > 0 && revision < lastSavedRevision {
+            print("[VXDeck] Discarding outdated save revision \(revision) < \(lastSavedRevision)")
+            return
+        }
+
         try ensureDirectoryExists()
         var updated = config
         updated.updatedAt = Date()
@@ -102,8 +120,8 @@ public actor ConfigManager {
 
         // Force fsync on descriptor
         if let fileHandle = try? FileHandle(forWritingTo: tempURL) {
-            try? fileHandle.synchronize()
-            try? fileHandle.close()
+            try fileHandle.synchronize()
+            try fileHandle.close()
         }
 
         // Backup existing config if present
@@ -119,20 +137,18 @@ public actor ConfigManager {
             try fileManager.moveItem(at: tempURL, to: configFileURL)
         }
 
-        revision += 1
+        lastSavedRevision = max(lastSavedRevision, revision)
     }
 
-    private func saveConfigSync(_ config: DeckConfig) {
+    private func saveConfigSync(_ config: DeckConfig, revision: Int) {
         do {
-            try saveConfig(config)
+            try saveConfig(config, revision: revision)
         } catch {
             print("[VXDeck] Error saving config: \(error)")
         }
     }
 
-    /// Flush any pending write immediately.
     public func flush() {
-        // Since calls in actor are serial and synchronous to the actor,
-        // calling flush ensures all queued actor executions have completed.
+        // Serial execution inside actor guarantees all prior saveConfig calls completed
     }
 }

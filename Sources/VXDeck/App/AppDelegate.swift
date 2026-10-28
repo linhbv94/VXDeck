@@ -34,12 +34,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
-    public func applicationWillTerminate(_ notification: Notification) {
-        let semaphore = DispatchSemaphore(value: 0)
-        Task {
-            await ConfigManager.shared.flush()
-            semaphore.signal()
+    public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Task { @MainActor in
+            await DeckStore.shared.flush()
+            sender.reply(toApplicationShouldTerminate: true)
         }
-        _ = semaphore.wait(timeout: .now() + 1.0)
+        return .terminateLater
     }
 }

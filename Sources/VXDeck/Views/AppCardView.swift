@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import VXDeckCore
 
 public struct AppCardView: View {
@@ -95,7 +96,6 @@ public struct AppCardView: View {
         }
         .onTapGesture {
             if store.isEditMode {
-                // In edit mode, tap allows renaming label
                 labelText = item.customLabel ?? item.name
                 isEditingLabel = true
             } else {
@@ -103,8 +103,15 @@ public struct AppCardView: View {
             }
         }
         .contextMenu {
-            Button("Khởi chạy") {
-                launchApp()
+            if !store.isEditMode && item.isAvailable {
+                Button("Khởi chạy") {
+                    launchApp()
+                }
+            }
+            if !item.isAvailable {
+                Button("Định vị lại ứng dụng...") {
+                    relinkApp()
+                }
             }
             Button("Đổi tên hiển thị...") {
                 labelText = item.customLabel ?? item.name
@@ -112,8 +119,8 @@ public struct AppCardView: View {
             }
             Divider()
             Button("Hiện trong Finder") {
-                let url = URL(fileURLWithPath: item.path)
-                NSWorkspace.shared.activateFileViewerSelecting([url])
+                let resolvedURL = AppLauncher.shared.resolveTargetURL(for: item) ?? URL(fileURLWithPath: item.path)
+                NSWorkspace.shared.activateFileViewerSelecting([resolvedURL])
             }
             Divider()
             Button(role: .destructive, action: {
@@ -124,7 +131,30 @@ public struct AppCardView: View {
         }
     }
 
+    private func relinkApp() {
+        store.isModalOpen = true
+        let openPanel = NSOpenPanel()
+        openPanel.title = "Định vị lại ứng dụng '\(item.displayName)'"
+        openPanel.message = "Chọn tệp ứng dụng .app thay thế trên ổ đĩa"
+        openPanel.prompt = "Chọn"
+        openPanel.canChooseFiles = true
+        openPanel.canChooseDirectories = false
+        openPanel.allowsMultipleSelection = false
+        openPanel.directoryURL = URL(fileURLWithPath: "/Applications")
+
+        if let appType = UTType(filenameExtension: "app") {
+            openPanel.allowedContentTypes = [appType]
+        }
+
+        openPanel.begin { response in
+            store.isModalOpen = false
+            guard response == .OK, let selectedURL = openPanel.url else { return }
+            _ = store.relinkApp(itemId: item.id, inCollectionId: collectionId, newPath: selectedURL.path)
+        }
+    }
+
     private func launchApp() {
+        guard !store.isEditMode else { return }
         guard item.isAvailable else {
             store.showToast("Ứng dụng không tồn tại: \(item.path)")
             return
@@ -139,7 +169,11 @@ public struct AppCardView: View {
         Task {
             do {
                 try await AppLauncher.shared.launch(item: item)
-                if store.settings.autoHideOnLaunch && store.windowSessionId == sessionId {
+                // Protect against hiding panel during an active edit mode, modal session, or new window session
+                if store.settings.autoHideOnLaunch
+                    && store.windowSessionId == sessionId
+                    && !store.isEditMode
+                    && !store.isModalOpen {
                     onLaunchRequested()
                 }
             } catch {

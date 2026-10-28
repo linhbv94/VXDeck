@@ -8,12 +8,15 @@ public final class DeckStore: ObservableObject {
     @Published public var config: DeckConfig
     @Published public var isEditMode: Bool = false
     @Published public var isModalOpen: Bool = false
+    @Published public var showAddCollectionDialog: Bool = false
     @Published public var windowSessionId: UUID = UUID()
     @Published public var toastMessage: String? = nil
 
+    public private(set) var currentRevision: Int = 1
     private let configManager: ConfigManager
     private let appLauncher: AppLauncher
     private var toastTask: Task<Void, Never>?
+    private var currentSaveTask: Task<Void, Error>?
 
     public var collections: [CollectionModel] {
         get { config.collections.sorted(by: { $0.displayOrder < $1.displayOrder }) }
@@ -43,19 +46,38 @@ public final class DeckStore: ObservableObject {
                 let item = config.collections[cIndex].items[iIndex]
                 let available = appLauncher.isAvailable(item: item)
                 config.collections[cIndex].items[iIndex].isAvailable = available
+
+                // If path moved but resolved via bundle identifier, update path
+                if let resolved = appLauncher.resolveTargetURL(for: item), resolved.path != item.path {
+                    config.collections[cIndex].items[iIndex].path = resolved.path
+                    config.collections[cIndex].items[iIndex].isAvailable = true
+                }
             }
         }
     }
 
     public func save() {
-        let current = self.config
-        Task {
+        currentRevision += 1
+        let rev = currentRevision
+        let snapshot = self.config
+
+        currentSaveTask = Task {
             do {
-                try await configManager.saveConfig(current)
+                try await configManager.saveConfig(snapshot, revision: rev)
             } catch {
-                print("[DeckStore] Failed to save config: \(error)")
+                await MainActor.run {
+                    self.showToast("Lỗi lưu cấu hình: \(error.localizedDescription)")
+                }
+                throw error
             }
         }
+    }
+
+    public func flush() async {
+        if let saveTask = currentSaveTask {
+            _ = try? await saveTask.value
+        }
+        await configManager.flush()
     }
 
     public func toggleEditMode() {
@@ -63,7 +85,7 @@ public final class DeckStore: ObservableObject {
         if !isEditMode {
             save()
             Task {
-                await configManager.flush()
+                await flush()
             }
         }
     }
@@ -74,7 +96,7 @@ public final class DeckStore: ObservableObject {
         if !isEditMode {
             save()
             Task {
-                await configManager.flush()
+                await flush()
             }
         }
     }
@@ -102,15 +124,20 @@ public final class DeckStore: ObservableObject {
         }
 
         let url = URL(fileURLWithPath: path)
-        guard url.pathExtension == "app" || FileManager.default.fileExists(atPath: path) else {
-            showToast("Chỉ chấp nhận các tệp ứng dụng .app")
+        // Strict verification: must be .app extension AND file must exist AND valid bundle
+        guard url.pathExtension.lowercased() == "app" && FileManager.default.fileExists(atPath: path) else {
+            showToast("Chỉ chấp nhận các tệp ứng dụng .app hợp lệ")
             return false
         }
 
-        let bundle = Bundle(url: url)
-        let bundleId = bundle?.bundleIdentifier
-        let displayName = (bundle?.infoDictionary?["CFBundleDisplayName"] as? String)
-            ?? (bundle?.infoDictionary?["CFBundleName"] as? String)
+        guard let bundle = Bundle(url: url) else {
+            showToast("Không thể đọc thông tin bundle ứng dụng")
+            return false
+        }
+
+        let bundleId = bundle.bundleIdentifier
+        let displayName = (bundle.infoDictionary?["CFBundleDisplayName"] as? String)
+            ?? (bundle.infoDictionary?["CFBundleName"] as? String)
             ?? url.deletingPathExtension().lastPathComponent
 
         // Check for duplicates in collection
@@ -160,16 +187,46 @@ public final class DeckStore: ObservableObject {
         save()
     }
 
+    public func relinkApp(itemId: UUID, inCollectionId collectionId: UUID, newPath: String) -> Bool {
+        guard let colIndex = config.collections.firstIndex(where: { $0.id == collectionId }),
+              let itemIndex = config.collections[colIndex].items.firstIndex(where: { $0.id == itemId }) else {
+            return false
+        }
+
+        let url = URL(fileURLWithPath: newPath)
+        guard url.pathExtension.lowercased() == "app" && FileManager.default.fileExists(atPath: newPath) else {
+            showToast("Đường dẫn mới không phải là tệp .app hợp lệ")
+            return false
+        }
+
+        let bundle = Bundle(url: url)
+        if let expectedBundleId = config.collections[colIndex].items[itemIndex].bundleId,
+           let newBundleId = bundle?.bundleIdentifier,
+           expectedBundleId != newBundleId {
+            showToast("Ứng dụng được chọn không khớp định danh với ứng dụng cũ")
+            return false
+        }
+
+        config.collections[colIndex].items[itemIndex].path = newPath
+        config.collections[colIndex].items[itemIndex].isAvailable = true
+        if let newBundleId = bundle?.bundleIdentifier {
+            config.collections[colIndex].items[itemIndex].bundleId = newBundleId
+        }
+        save()
+        showToast("Đã định vị lại ứng dụng thành công")
+        return true
+    }
+
     // MARK: - Reordering
 
     public func reorderItems(inCollectionId collectionId: UUID, from sourceIndex: Int, to destinationIndex: Int) {
         guard let colIndex = config.collections.firstIndex(where: { $0.id == collectionId }) else { return }
         var items = config.collections[colIndex].items
         guard sourceIndex >= 0, sourceIndex < items.count else { return }
-        guard destinationIndex >= 0, destinationIndex <= items.count else { return }
 
+        let clampedDest = max(0, min(destinationIndex, items.count))
         let item = items.remove(at: sourceIndex)
-        let insertIndex = (destinationIndex > sourceIndex) ? destinationIndex - 1 : destinationIndex
+        let insertIndex = (clampedDest > sourceIndex) ? clampedDest - 1 : clampedDest
         items.insert(item, at: min(insertIndex, items.count))
 
         for i in 0..<items.count {
@@ -212,7 +269,8 @@ public final class DeckStore: ObservableObject {
             return
         }
 
-        let insertAt = min(targetIndex ?? config.collections[targetColIndex].items.count, config.collections[targetColIndex].items.count)
+        let rawTarget = targetIndex ?? config.collections[targetColIndex].items.count
+        let insertAt = max(0, min(rawTarget, config.collections[targetColIndex].items.count))
         config.collections[targetColIndex].items.insert(item, at: insertAt)
         recalculateItemOrders(inCollectionIndex: targetColIndex)
         save()

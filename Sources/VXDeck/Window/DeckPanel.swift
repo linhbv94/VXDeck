@@ -32,12 +32,31 @@ public final class DeckPanel: NSPanel {
         return true
     }
 
-    public override func keyDown(with event: NSEvent) {
-        // Keycode 53 is Escape
-        if event.keyCode == 53 {
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Intercept Escape and Cmd+E even if a child responder / textfield is focused
+        if event.keyCode == 53 { // Escape
             if DeckStore.shared.isModalOpen {
-                return
+                return false
             }
+            if DeckStore.shared.isEditMode {
+                DeckStore.shared.setEditMode(false)
+                return true
+            }
+            hidePanel()
+            return true
+        }
+
+        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "e" {
+            DeckStore.shared.toggleEditMode()
+            return true
+        }
+
+        return super.performKeyEquivalent(with: event)
+    }
+
+    public override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 {
+            if DeckStore.shared.isModalOpen { return }
             if DeckStore.shared.isEditMode {
                 DeckStore.shared.setEditMode(false)
                 return
@@ -46,7 +65,6 @@ public final class DeckPanel: NSPanel {
             return
         }
 
-        // Cmd + E for Edit Mode toggle
         if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "e" {
             DeckStore.shared.toggleEditMode()
             return
@@ -56,22 +74,16 @@ public final class DeckPanel: NSPanel {
     }
 
     private func setupOutsideClickMonitor() {
-        eventMonitor = EventMonitor(mask: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+        eventMonitor = EventMonitor(mask: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            let eventLocation = NSEvent.mouseLocation
+            let capturedSessionId = DeckStore.shared.windowSessionId
+
             Task { @MainActor in
                 guard let self = self, self.isVisible else { return }
+                guard DeckStore.shared.windowSessionId == capturedSessionId else { return }
+                if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
 
-                // If a modal (such as NSOpenPanel) is currently active, ignore outside clicks
-                if DeckStore.shared.isModalOpen {
-                    return
-                }
-
-                // In Edit Mode, outside clicks do not close the window to prevent accidental loss
-                if DeckStore.shared.isEditMode {
-                    return
-                }
-
-                let mouseLocation = NSEvent.mouseLocation
-                if !self.frame.contains(mouseLocation) {
+                if !self.frame.contains(eventLocation) {
                     self.hidePanel()
                 }
             }
@@ -79,11 +91,17 @@ public final class DeckPanel: NSPanel {
     }
 
     public func showPanel() {
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+        // Multi-monitor support: prioritize screen currently containing the mouse cursor
+        let mouseLoc = NSEvent.mouseLocation
+        let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(mouseLoc, $0.frame, false) })
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+
+        guard let screen = targetScreen else { return }
         let visibleFrame = screen.visibleFrame
 
-        let width: CGFloat = 620
-        let currentHeight = self.frame.height > 100 ? self.frame.height : 460
+        let width: CGFloat = min(620, visibleFrame.width - 40)
+        let currentHeight = min(max(self.frame.height > 100 ? self.frame.height : 460, 260), min(760, visibleFrame.height * 0.85))
 
         // Position horizontally centered, vertically in the lower half above the Dock
         let x = visibleFrame.origin.x + (visibleFrame.width - width) / 2

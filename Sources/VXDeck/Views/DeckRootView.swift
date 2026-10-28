@@ -5,7 +5,6 @@ public struct DeckRootView: View {
     @EnvironmentObject var store: DeckStore
     let onCloseRequested: () -> Void
 
-    @LocalState private var isCreatingGroup = false
     @LocalState private var newGroupTitle = ""
 
     public var body: some View {
@@ -58,6 +57,39 @@ public struct DeckRootView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: Color.black.opacity(0.55), radius: 30, x: 0, y: 15)
+        .sheet(isPresented: $store.showAddCollectionDialog) {
+            VStack(spacing: 16) {
+                Text("Tạo Bộ Sưu Tập Mới")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white)
+
+                TextField("Ví dụ: Thiết Kế, Lập Trình, Game...", text: $newGroupTitle)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 260)
+
+                HStack(spacing: 12) {
+                    Button("Hủy") {
+                        store.isModalOpen = false
+                        store.showAddCollectionDialog = false
+                        newGroupTitle = ""
+                    }
+                    .keyboardShortcut(.cancelAction)
+
+                    Button("Tạo") {
+                        store.isModalOpen = false
+                        store.showAddCollectionDialog = false
+                        store.createCollection(title: newGroupTitle)
+                        newGroupTitle = ""
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.cyan)
+                }
+            }
+            .padding(20)
+            .frame(width: 300)
+            .background(Color(red: 0.1, green: 0.12, blue: 0.16))
+        }
     }
 
     private var emptyCollectionsPlaceholder: some View {
@@ -100,7 +132,7 @@ public struct DeckRootView: View {
     private var addCollectionBottomBar: some View {
         Button(action: {
             store.isModalOpen = true
-            isCreatingGroup = true
+            store.showAddCollectionDialog = true
         }) {
             HStack(spacing: 8) {
                 Image(systemName: "plus.circle")
@@ -121,37 +153,5 @@ public struct DeckRootView: View {
             )
         }
         .buttonStyle(.plain)
-        .sheet(isPresented: $isCreatingGroup) {
-            VStack(spacing: 16) {
-                Text("Tạo Bộ Sưu Tập Mới")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-
-                TextField("Tên nhóm bộ sưu tập", text: $newGroupTitle)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 260)
-
-                HStack(spacing: 12) {
-                    Button("Hủy") {
-                        store.isModalOpen = false
-                        isCreatingGroup = false
-                    }
-                    .keyboardShortcut(.cancelAction)
-
-                    Button("Tạo") {
-                        store.isModalOpen = false
-                        isCreatingGroup = false
-                        store.createCollection(title: newGroupTitle)
-                        newGroupTitle = ""
-                    }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.cyan)
-                }
-            }
-            .padding(20)
-            .frame(width: 300)
-            .background(Color(red: 0.1, green: 0.12, blue: 0.16))
-        }
     }
 }

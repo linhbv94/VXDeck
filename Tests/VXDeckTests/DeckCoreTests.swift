@@ -14,7 +14,7 @@ struct DeckCoreTests {
         print("  ✓ testDefaultSeedGeneration: PASS")
 
         await testDeckStoreCollectionAndItemOperations()
-        print("  ✓ testDeckStoreCollectionAndItemOperations: PASS")
+        print("  ✓ testDeckStoreCollectionAndItemOperations (isolated sandbox): PASS")
 
         testIconProvider()
         print("  ✓ testIconProvider: PASS")
@@ -86,12 +86,17 @@ struct DeckCoreTests {
 
     @MainActor
     static func testDeckStoreCollectionAndItemOperations() async {
-        let store = DeckStore()
+        // Enforce isolated temporary directory to ensure tests NEVER mutate user's real config
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vxdeck_test_\(UUID().uuidString)", isDirectory: true)
+        let testConfigManager = ConfigManager(customDirectoryURL: tempDir)
+        let store = DeckStore(configManager: testConfigManager)
         await store.initialize()
 
         // Create new collection
-        store.createCollection(title: "Nhóm Kiểm Thử")
-        guard let testCol = store.collections.first(where: { $0.title == "Nhóm Kiểm Thử" }) else {
+        let testColTitle = "Test Sandbox Group \(UUID().uuidString.prefix(6))"
+        store.createCollection(title: testColTitle)
+        guard let testCol = store.collections.first(where: { $0.title == testColTitle }) else {
             fatalError("Collection was not created")
         }
 
@@ -103,29 +108,39 @@ struct DeckCoreTests {
         let duplicateAdded = store.addApp(toCollectionId: testCol.id, path: "/Applications/Safari.app")
         assert(!duplicateAdded, "Duplicate app should be rejected")
 
-        // Add another app
-        _ = store.addApp(toCollectionId: testCol.id, path: "/System/Applications/Utilities/Terminal.app")
+        // Add second app
+        let addedSecond = store.addApp(toCollectionId: testCol.id, path: "/System/Applications/Utilities/Terminal.app")
+        assert(addedSecond, "Failed to add Terminal to collection")
 
         let updatedCol = store.collections.first(where: { $0.id == testCol.id })!
         assert(updatedCol.items.count == 2, "Collection should have 2 items")
-        assert(updatedCol.items[0].displayOrder == 0, "Item 0 order should be 0")
-        assert(updatedCol.items[1].displayOrder == 1, "Item 1 order should be 1")
+        let firstItemId = updatedCol.items[0].id
+        let secondItemId = updatedCol.items[1].id
+        assert(updatedCol.items[0].name == "Safari")
+        assert(updatedCol.items[1].name == "Terminal")
 
-        // Reorder items
+        // Reorder items: move Safari from index 0 to after Terminal
         store.reorderItems(inCollectionId: testCol.id, from: 0, to: 2)
         let reorderedCol = store.collections.first(where: { $0.id == testCol.id })!
-        assert(reorderedCol.items[0].displayOrder == 0, "Reordered item 0 should be 0")
-        assert(reorderedCol.items[1].displayOrder == 1, "Reordered item 1 should be 1")
+        assert(reorderedCol.items.count == 2, "Item count should remain 2")
+        // Verify by actual Item ID that position swapped
+        assert(reorderedCol.items[0].id == secondItemId, "Terminal should now be at index 0")
+        assert(reorderedCol.items[1].id == firstItemId, "Safari should now be at index 1")
+        assert(reorderedCol.items[0].displayOrder == 0)
+        assert(reorderedCol.items[1].displayOrder == 1)
 
         // Remove item
-        let firstItemId = reorderedCol.items[0].id
         store.removeApp(itemId: firstItemId, fromCollectionId: testCol.id)
         let afterRemovalCol = store.collections.first(where: { $0.id == testCol.id })!
         assert(afterRemovalCol.items.count == 1, "Collection should have 1 item after removal")
+        assert(afterRemovalCol.items[0].id == secondItemId, "Remaining item should be Terminal")
 
         // Delete collection
         store.deleteCollection(collectionId: testCol.id)
         assert(store.collections.first(where: { $0.id == testCol.id }) == nil, "Collection should be removed")
+
+        // Clean up sandbox
+        try? FileManager.default.removeItem(at: tempDir)
     }
 
     static func testIconProvider() {

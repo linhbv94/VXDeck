@@ -487,7 +487,7 @@ public final class DeckStore: ObservableObject {
         Task {
             // Đợi 2.5 giây sau khi mở app để khởi động hoàn toàn mượt mà
             try? await Task.sleep(nanoseconds: 2_500_000_000)
-            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1"
+            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2"
 
             if let latestURL = URL(string: "https://github.com/linhbv94/VXDeck/releases/latest/download/latest.json") {
                 var req = URLRequest(url: latestURL)

@@ -8,7 +8,7 @@ cd "${PROJECT_DIR}"
 
 APP_NAME="VXDeck"
 BUNDLE_ID="com.ztools.vxdeck"
-VERSION="${1:-1.0.1}"
+VERSION="${1:-1.0.2}"
 BUILD_DIR="${PROJECT_DIR}/build"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 CONTENTS_DIR="${APP_BUNDLE}/Contents"

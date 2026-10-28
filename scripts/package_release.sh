@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${PROJECT_DIR}"
 
-VERSION="${1:-1.0.1}"
+VERSION="${1:-1.0.2}"
 APP_NAME="VXDeck"
 BUILD_DIR="${PROJECT_DIR}/build"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
@@ -38,7 +38,7 @@ cat <<EOF > "${BUILD_DIR}/latest.json"
   "version": "${VERSION}",
   "tag_name": "v${VERSION}",
   "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "notes": "VXDeck v${VERSION} — Cập nhật bản vá & cải tiến: Khắc phục lỗi thoát app, hoàn thiện lưu kích thước cửa sổ, đổi thứ tự bộ sưu tập và tối ưu kéo thả app.",
+  "notes": "VXDeck v${VERSION} — Tính năng mới: Tự động cập nhật đè (In-place Auto-update) và tự khởi động lại 1-chạm mượt mà.",
   "html_url": "https://github.com/linhbv94/VXDeck/releases/tag/v${VERSION}",
   "download_url": "https://github.com/linhbv94/VXDeck/releases/download/v${VERSION}/${DMG_NAME}",
   "sha256": "${DMG_SHA256}",

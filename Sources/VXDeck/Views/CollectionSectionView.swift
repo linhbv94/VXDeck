@@ -15,6 +15,14 @@ public struct CollectionSectionView: View {
         [GridItem(.adaptive(minimum: 88, maximum: 104), spacing: 12)]
     }
 
+    private var isFirstCollection: Bool {
+        store.collections.first?.id == collection.id
+    }
+
+    private var isLastCollection: Bool {
+        store.collections.last?.id == collection.id
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header: Title & Actions
@@ -51,6 +59,30 @@ public struct CollectionSectionView: View {
 
                 if store.isEditMode {
                     HStack(spacing: 6) {
+                        Button(action: {
+                            store.moveCollectionUp(collectionId: collection.id)
+                        }) {
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(isFirstCollection ? Color.white.opacity(0.18) : Color(red: 0.7, green: 0.75, blue: 0.8))
+                                .padding(4)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isFirstCollection)
+                        .help("Di chuyển nhóm lên trên")
+
+                        Button(action: {
+                            store.moveCollectionDown(collectionId: collection.id)
+                        }) {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(isLastCollection ? Color.white.opacity(0.18) : Color(red: 0.7, green: 0.75, blue: 0.8))
+                                .padding(4)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isLastCollection)
+                        .help("Di chuyển nhóm xuống dưới")
+
                         Button(action: {
                             if isEditingTitle {
                                 store.updateCollectionTitle(collectionId: collection.id, title: titleDraft)

@@ -82,10 +82,16 @@ public struct AddAppCardPlaceholder: View {
 
         openPanel.begin { response in
             store.isModalOpen = false
+            NSApp.activate(ignoringOtherApps: true)
+            (NSApp.keyWindow ?? NSApp.windows.first(where: { $0 is DeckPanel }))?.makeKeyAndOrderFront(nil)
+
             guard response == .OK else { return }
 
             for url in openPanel.urls {
                 _ = store.addApp(toCollectionId: collectionId, path: url.path)
+            }
+            Task {
+                await store.flush()
             }
         }
     }
@@ -157,14 +163,10 @@ public struct PlaceholderDropDelegate: DropDelegate {
     private func commitDrop(draggedItemId: UUID, sourceColId: UUID) {
         store.cancelDrag()
 
-        guard let targetCol = self.store.collections.first(where: { $0.id == self.collectionId }) else { return }
-
         if sourceColId == self.collectionId {
-            guard let sourceCol = self.store.collections.first(where: { $0.id == sourceColId }),
-                  let sourceIndex = sourceCol.items.firstIndex(where: { $0.id == draggedItemId }) else { return }
-            self.store.reorderItems(inCollectionId: self.collectionId, from: sourceIndex, to: targetCol.items.count)
+            self.store.moveItemToEnd(itemId: draggedItemId, inCollectionId: self.collectionId)
         } else {
-            self.store.moveItem(itemId: draggedItemId, fromCollectionId: sourceColId, toCollectionId: self.collectionId, targetIndex: targetCol.items.count)
+            self.store.moveItem(itemId: draggedItemId, fromCollectionId: sourceColId, toCollectionId: self.collectionId, relativeTo: nil, edge: .trailing)
         }
     }
 }

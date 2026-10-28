@@ -25,7 +25,13 @@ struct DeckCoreTests {
         testSemVerComparison()
         print("  ✓ testSemVerComparison: PASS")
 
-        print("==> [VXDeckCoreTests] ALL 5 TEST SUITES PASSED SUCCESSFULLY (100% PASS)!")
+        await testAddAppAndImmediateReorderPersistence()
+        print("  ✓ testAddAppAndImmediateReorderPersistence: PASS")
+
+        await testCollectionReordering()
+        print("  ✓ testCollectionReordering: PASS")
+
+        print("==> [VXDeckCoreTests] ALL 7 TEST SUITES PASSED SUCCESSFULLY (100% PASS)!")
     }
 
     static func testSemVerComparison() {
@@ -210,5 +216,128 @@ struct DeckCoreTests {
         let icon = IconProvider.shared.icon(forPath: "/Applications/Safari.app")
         assert(icon.size.width == 48, "Icon width should be 48")
         assert(icon.size.height == 48, "Icon height should be 48")
+    }
+
+    @MainActor
+    static func testAddAppAndImmediateReorderPersistence() async {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vxdeck_reorder_test_\(UUID().uuidString)", isDirectory: true)
+        let configManager = ConfigManager(customDirectoryURL: tempDir)
+        let store = DeckStore(configManager: configManager)
+        await store.initialize()
+
+        // 1. Create a fresh collection
+        store.createCollection(title: "Development")
+        guard let col = store.collections.first(where: { $0.title == "Development" }) else {
+            fatalError("Collection creation failed")
+        }
+
+        // 2. Add multiple apps sequentially (mimicking openAppPicker loop)
+        let added1 = store.addApp(toCollectionId: col.id, path: "/Applications/Safari.app")
+        let added2 = store.addApp(toCollectionId: col.id, path: "/System/Applications/Utilities/Terminal.app")
+        let added3 = store.addApp(toCollectionId: col.id, path: "/System/Applications/Calculator.app")
+        assert(added1 && added2 && added3, "All apps should be added successfully")
+
+        var currentItems = store.collections.first(where: { $0.id == col.id })!.items
+        assert(currentItems.count == 3, "Collection should have 3 items")
+        let idSafari = currentItems[0].id
+        let idTerminal = currentItems[1].id
+        let idCalc = currentItems[2].id
+
+        // 3. Immediately test reorderItem: Move Calculator before Terminal (.leading of Terminal)
+        store.reorderItem(itemId: idCalc, inCollectionId: col.id, relativeTo: idTerminal, edge: .leading)
+        currentItems = store.collections.first(where: { $0.id == col.id })!.items
+        // Expected order: Safari (0), Calculator (1), Terminal (2)
+        assert(currentItems[0].id == idSafari, "Item 0 should be Safari")
+        assert(currentItems[1].id == idCalc, "Item 1 should be Calculator")
+        assert(currentItems[2].id == idTerminal, "Item 2 should be Terminal")
+        assert(currentItems[0].displayOrder == 0)
+        assert(currentItems[1].displayOrder == 1)
+        assert(currentItems[2].displayOrder == 2)
+
+        // 4. Test reorderItem: Move Safari after Terminal (.trailing of Terminal)
+        store.reorderItem(itemId: idSafari, inCollectionId: col.id, relativeTo: idTerminal, edge: .trailing)
+        currentItems = store.collections.first(where: { $0.id == col.id })!.items
+        // Expected order: Calculator (0), Terminal (1), Safari (2)
+        assert(currentItems[0].id == idCalc, "Item 0 should be Calculator")
+        assert(currentItems[1].id == idTerminal, "Item 1 should be Terminal")
+        assert(currentItems[2].id == idSafari, "Item 2 should be Safari")
+
+        // 5. Test moveItemToEnd: Move Calculator to end
+        store.moveItemToEnd(itemId: idCalc, inCollectionId: col.id)
+        currentItems = store.collections.first(where: { $0.id == col.id })!.items
+        // Expected order: Terminal (0), Safari (1), Calculator (2)
+        assert(currentItems[0].id == idTerminal, "Item 0 should be Terminal")
+        assert(currentItems[1].id == idSafari, "Item 1 should be Safari")
+        assert(currentItems[2].id == idCalc, "Item 2 should be Calculator")
+
+        // 6. Flush persistence to disk
+        await store.flush()
+
+        // 7. Simulate restart / crash recovery: Create fresh ConfigManager and reload from disk
+        let reloadConfigManager = ConfigManager(customDirectoryURL: tempDir)
+        let reloadedConfig = await reloadConfigManager.loadConfig()
+        guard let reloadedCol = reloadedConfig.collections.first(where: { $0.id == col.id }) else {
+            fatalError("Reloaded collection missing")
+        }
+
+        let reloadedItems = reloadedCol.items.sorted(by: { $0.displayOrder < $1.displayOrder })
+        assert(reloadedItems.count == 3, "Reloaded collection must retain all 3 items (none lost on restart)")
+        assert(reloadedItems[0].id == idTerminal, "Persisted item 0 must be Terminal")
+        assert(reloadedItems[1].id == idSafari, "Persisted item 1 must be Safari")
+        assert(reloadedItems[2].id == idCalc, "Persisted item 2 must be Calculator")
+
+        // Clean up sandbox
+        try? FileManager.default.removeItem(at: tempDir)
+    }
+
+    @MainActor
+    static func testCollectionReordering() async {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vxdeck_col_reorder_\(UUID().uuidString)", isDirectory: true)
+        let configManager = ConfigManager(customDirectoryURL: tempDir)
+        let store = DeckStore(configManager: configManager)
+        await store.initialize()
+
+        // Create 3 collections
+        store.createCollection(title: "Group Alpha")
+        store.createCollection(title: "Group Beta")
+        store.createCollection(title: "Group Gamma")
+
+        var cols = store.collections
+        assert(cols.count >= 3, "Must have at least 3 collections")
+        guard let idAlpha = cols.first(where: { $0.title == "Group Alpha" })?.id,
+              let idBeta = cols.first(where: { $0.title == "Group Beta" })?.id,
+              let idGamma = cols.first(where: { $0.title == "Group Gamma" })?.id else {
+            fatalError("Collections not found")
+        }
+
+        // Test moveCollectionDown on Alpha
+        store.moveCollectionDown(collectionId: idAlpha)
+        cols = store.collections
+        let idxAlpha = cols.firstIndex(where: { $0.id == idAlpha })!
+        let idxBeta = cols.firstIndex(where: { $0.id == idBeta })!
+        assert(idxAlpha > idxBeta, "Alpha should now be below Beta")
+
+        // Test moveCollectionUp on Gamma
+        store.moveCollectionUp(collectionId: idGamma)
+        cols = store.collections
+        let idxGamma = cols.firstIndex(where: { $0.id == idGamma })!
+        assert(idxGamma < cols.count - 1, "Gamma should have moved up")
+
+        // Test persistence of collection orders
+        let finalCols = store.collections
+        let expectedAlphaIndex = finalCols.firstIndex(where: { $0.id == idAlpha })!
+        let expectedGammaIndex = finalCols.firstIndex(where: { $0.id == idGamma })!
+        await store.flush()
+
+        let reloadManager = ConfigManager(customDirectoryURL: tempDir)
+        let reloadedConfig = await reloadManager.loadConfig()
+        let reloadedCols = reloadedConfig.collections.sorted(by: { $0.displayOrder < $1.displayOrder })
+        assert(reloadedCols.firstIndex(where: { $0.id == idAlpha }) == expectedAlphaIndex, "Alpha position must be persisted")
+        assert(reloadedCols.firstIndex(where: { $0.id == idGamma }) == expectedGammaIndex, "Gamma position must be persisted")
+
+        // Clean up sandbox
+        try? FileManager.default.removeItem(at: tempDir)
     }
 }

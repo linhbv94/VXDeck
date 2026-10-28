@@ -247,6 +247,51 @@ public final class DeckStore: ObservableObject {
 
     // MARK: - Reordering
 
+    public func reorderItem(
+        itemId: UUID,
+        inCollectionId collectionId: UUID,
+        relativeTo targetItemId: UUID,
+        edge: DropTargetState.Edge
+    ) {
+        guard itemId != targetItemId else { return }
+        guard let colIndex = config.collections.firstIndex(where: { $0.id == collectionId }) else { return }
+        var items = config.collections[colIndex].items
+        guard let sourceIndex = items.firstIndex(where: { $0.id == itemId }),
+              items.contains(where: { $0.id == targetItemId }) else { return }
+
+        let item = items.remove(at: sourceIndex)
+        guard let newTargetIndex = items.firstIndex(where: { $0.id == targetItemId }) else {
+            items.insert(item, at: sourceIndex)
+            return
+        }
+
+        let insertIndex = (edge == .trailing) ? newTargetIndex + 1 : newTargetIndex
+        items.insert(item, at: max(0, min(insertIndex, items.count)))
+
+        for i in 0..<items.count {
+            items[i].displayOrder = i
+        }
+
+        config.collections[colIndex].items = items
+        save()
+    }
+
+    public func moveItemToEnd(itemId: UUID, inCollectionId collectionId: UUID) {
+        guard let colIndex = config.collections.firstIndex(where: { $0.id == collectionId }) else { return }
+        var items = config.collections[colIndex].items
+        guard let sourceIndex = items.firstIndex(where: { $0.id == itemId }) else { return }
+
+        let item = items.remove(at: sourceIndex)
+        items.append(item)
+
+        for i in 0..<items.count {
+            items[i].displayOrder = i
+        }
+
+        config.collections[colIndex].items = items
+        save()
+    }
+
     public func reorderItems(inCollectionId collectionId: UUID, from sourceIndex: Int, to destinationIndex: Int) {
         guard let colIndex = config.collections.firstIndex(where: { $0.id == collectionId }) else { return }
         var items = config.collections[colIndex].items
@@ -269,7 +314,8 @@ public final class DeckStore: ObservableObject {
         itemId: UUID,
         fromCollectionId: UUID,
         toCollectionId: UUID,
-        targetIndex: Int? = nil
+        relativeTo targetItemId: UUID? = nil,
+        edge: DropTargetState.Edge = .trailing
     ) {
         guard let sourceColIndex = config.collections.firstIndex(where: { $0.id == fromCollectionId }),
               let targetColIndex = config.collections.firstIndex(where: { $0.id == toCollectionId }) else {
@@ -297,9 +343,14 @@ public final class DeckStore: ObservableObject {
             return
         }
 
-        let rawTarget = targetIndex ?? config.collections[targetColIndex].items.count
-        let insertAt = max(0, min(rawTarget, config.collections[targetColIndex].items.count))
-        config.collections[targetColIndex].items.insert(item, at: insertAt)
+        if let targetId = targetItemId,
+           let targetIndex = config.collections[targetColIndex].items.firstIndex(where: { $0.id == targetId }) {
+            let insertIndex = (edge == .trailing) ? targetIndex + 1 : targetIndex
+            config.collections[targetColIndex].items.insert(item, at: max(0, min(insertIndex, config.collections[targetColIndex].items.count)))
+        } else {
+            config.collections[targetColIndex].items.append(item)
+        }
+
         recalculateItemOrders(inCollectionIndex: targetColIndex)
         save()
     }
@@ -310,7 +361,36 @@ public final class DeckStore: ObservableObject {
         }
     }
 
-    // MARK: - Collection Operations
+    // MARK: - Collection Operations & Reordering
+
+    public func reorderCollections(from sourceIndex: Int, to destinationIndex: Int) {
+        var cols = config.collections.sorted(by: { $0.displayOrder < $1.displayOrder })
+        guard sourceIndex >= 0, sourceIndex < cols.count else { return }
+
+        let clampedDest = max(0, min(destinationIndex, cols.count))
+        let col = cols.remove(at: sourceIndex)
+        let insertIndex = (clampedDest > sourceIndex) ? clampedDest - 1 : clampedDest
+        cols.insert(col, at: min(insertIndex, cols.count))
+
+        for i in 0..<cols.count {
+            cols[i].displayOrder = i
+        }
+
+        config.collections = cols
+        save()
+    }
+
+    public func moveCollectionUp(collectionId: UUID) {
+        let cols = config.collections.sorted(by: { $0.displayOrder < $1.displayOrder })
+        guard let index = cols.firstIndex(where: { $0.id == collectionId }), index > 0 else { return }
+        reorderCollections(from: index, to: index - 1)
+    }
+
+    public func moveCollectionDown(collectionId: UUID) {
+        let cols = config.collections.sorted(by: { $0.displayOrder < $1.displayOrder })
+        guard let index = cols.firstIndex(where: { $0.id == collectionId }), index < cols.count - 1 else { return }
+        reorderCollections(from: index, to: index + 2)
+    }
 
     public func createCollection(title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)

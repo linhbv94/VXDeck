@@ -314,20 +314,12 @@ public struct AppCardDropDelegate: DropDelegate {
 
     private func commitDrop(draggedItemId: UUID, sourceColId: UUID, edge: DropTargetState.Edge) {
         store.cancelDrag()
-
-        guard let sourceCol = store.collections.first(where: { $0.id == sourceColId }),
-              let targetCol = store.collections.first(where: { $0.id == collectionId }),
-              let sourceIndex = sourceCol.items.firstIndex(where: { $0.id == draggedItemId }),
-              let targetIndex = targetCol.items.firstIndex(where: { $0.id == item.id }) else {
-            return
-        }
+        guard draggedItemId != item.id else { return }
 
         if sourceColId == collectionId {
-            let dest = (edge == .trailing) ? targetIndex + 1 : targetIndex
-            store.reorderItems(inCollectionId: collectionId, from: sourceIndex, to: dest)
+            store.reorderItem(itemId: draggedItemId, inCollectionId: collectionId, relativeTo: item.id, edge: edge)
         } else {
-            let dest = (edge == .trailing) ? targetIndex + 1 : targetIndex
-            store.moveItem(itemId: draggedItemId, fromCollectionId: sourceColId, toCollectionId: collectionId, targetIndex: dest)
+            store.moveItem(itemId: draggedItemId, fromCollectionId: sourceColId, toCollectionId: collectionId, relativeTo: item.id, edge: edge)
         }
     }
 }

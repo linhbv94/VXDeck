@@ -49,12 +49,16 @@ public struct AddAppCardPlaceholder: View {
         openPanel.prompt = "Thêm"
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
+        openPanel.treatsFilePackagesAsDirectories = false
         openPanel.allowsMultipleSelection = true
         openPanel.directoryURL = URL(fileURLWithPath: "/Applications")
-
-        if let appType = UTType(filenameExtension: "app") {
-            openPanel.allowedContentTypes = [appType]
-        }
+        openPanel.allowedContentTypes = [
+            .applicationBundle,
+            .application,
+            .symbolicLink,
+            .aliasFile
+        ]
+        openPanel.delegate = AppPickerDelegate.shared
 
         openPanel.begin { response in
             store.isModalOpen = false

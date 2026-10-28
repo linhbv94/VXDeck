@@ -78,6 +78,12 @@ public struct AppCardView: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .frame(width: 90, height: 26, alignment: .top)
+                    .onTapGesture {
+                        if store.isEditMode {
+                            labelText = item.customLabel ?? item.name
+                            isEditingLabel = true
+                        }
+                    }
             }
         }
         .frame(width: 96, height: 86)
@@ -95,10 +101,7 @@ public struct AppCardView: View {
             isHovered = hovering
         }
         .onTapGesture {
-            if store.isEditMode {
-                labelText = item.customLabel ?? item.name
-                isEditingLabel = true
-            } else {
+            if !store.isEditMode {
                 launchApp()
             }
         }
@@ -139,12 +142,16 @@ public struct AppCardView: View {
         openPanel.prompt = "Chọn"
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
+        openPanel.treatsFilePackagesAsDirectories = false
         openPanel.allowsMultipleSelection = false
         openPanel.directoryURL = URL(fileURLWithPath: "/Applications")
-
-        if let appType = UTType(filenameExtension: "app") {
-            openPanel.allowedContentTypes = [appType]
-        }
+        openPanel.allowedContentTypes = [
+            .applicationBundle,
+            .application,
+            .symbolicLink,
+            .aliasFile
+        ]
+        openPanel.delegate = AppPickerDelegate.shared
 
         openPanel.begin { response in
             store.isModalOpen = false

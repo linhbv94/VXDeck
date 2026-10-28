@@ -19,6 +19,8 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = true
+        self.isMovableByWindowBackground = true
+        self.hidesOnDeactivate = false
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         self.animationBehavior = .utilityWindow
 
@@ -34,7 +36,7 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                guard let self = self, self.isVisible else { return }
+                guard let self = self else { return }
                 if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
                 self.hidePanel()
             }
@@ -48,7 +50,7 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                guard let self = self, self.isVisible else { return }
+                guard let self = self else { return }
                 if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
                 self.hidePanel()
             }
@@ -56,7 +58,6 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
     }
 
     public func windowDidResignKey(_ notification: Notification) {
-        guard self.isVisible else { return }
         if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
         self.hidePanel()
     }
@@ -116,7 +117,7 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
             let capturedSessionId = DeckStore.shared.windowSessionId
 
             Task { @MainActor in
-                guard let self = self, self.isVisible else { return }
+                guard let self = self else { return }
                 guard DeckStore.shared.windowSessionId == capturedSessionId else { return }
                 if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
 

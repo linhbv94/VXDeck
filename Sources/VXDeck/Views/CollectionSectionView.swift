@@ -102,17 +102,24 @@ public struct CollectionSectionView: View {
             // Grid of App Items
             LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
                 ForEach(collection.items.sorted(by: { $0.displayOrder < $1.displayOrder })) { item in
-                    AppCardView(
-                        item: item,
-                        collectionId: collection.id,
-                        onLaunchRequested: onLaunchRequested
-                    )
-                    .onDrag {
-                        guard store.isEditMode else { return NSItemProvider() }
-                        return NSItemProvider(object: "\(collection.id.uuidString):\(item.id.uuidString)" as NSString)
-                    }
-                    .onDrop(of: [UTType.text], isTargeted: nil) { providers in
-                        handleDrop(providers: providers, targetItemId: item.id)
+                    if store.isEditMode {
+                        AppCardView(
+                            item: item,
+                            collectionId: collection.id,
+                            onLaunchRequested: onLaunchRequested
+                        )
+                        .onDrag {
+                            NSItemProvider(object: "\(collection.id.uuidString):\(item.id.uuidString)" as NSString)
+                        }
+                        .onDrop(of: [UTType.text], isTargeted: nil) { providers in
+                            handleDrop(providers: providers, targetItemId: item.id)
+                        }
+                    } else {
+                        AppCardView(
+                            item: item,
+                            collectionId: collection.id,
+                            onLaunchRequested: onLaunchRequested
+                        )
                     }
                 }
 

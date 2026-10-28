@@ -14,6 +14,7 @@ public final class DeckStore: ObservableObject {
     @Published public var toastMessage: String? = nil
 
     // Drag & drop insertion indicator state
+    @Published public var isDraggingApp: Bool = false
     @Published public var dropTarget: DropTargetState? = nil
     @Published public var draggingItemId: UUID? = nil
     @Published public var draggingCollectionId: UUID? = nil
@@ -99,6 +100,7 @@ public final class DeckStore: ObservableObject {
     public func setEditMode(_ active: Bool) {
         guard isEditMode != active else { return }
         isEditMode = active
+        isDraggingApp = false
         dropTarget = nil
         draggingItemId = nil
         draggingCollectionId = nil

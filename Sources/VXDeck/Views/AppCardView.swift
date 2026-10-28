@@ -19,12 +19,12 @@ public struct AppCardView: View {
     }
 
     private var showLeadingIndicator: Bool {
-        guard store.isEditMode, let target = store.dropTarget else { return false }
+        guard store.isEditMode, store.isDraggingApp, store.draggingItemId != nil, let target = store.dropTarget else { return false }
         return target.collectionId == collectionId && target.itemId == item.id && target.edge == .leading
     }
 
     private var showTrailingIndicator: Bool {
-        guard store.isEditMode, let target = store.dropTarget else { return false }
+        guard store.isEditMode, store.isDraggingApp, store.draggingItemId != nil, let target = store.dropTarget else { return false }
         return target.collectionId == collectionId && target.itemId == item.id && target.edge == .trailing
     }
 
@@ -243,12 +243,13 @@ public struct AppCardDropDelegate: DropDelegate {
     }
 
     public func dropEntered(info: DropInfo) {
+        guard store.isEditMode, store.isDraggingApp else { return }
         updateDropTarget(info: info)
     }
 
     public func dropUpdated(info: DropInfo) -> DropProposal? {
-        guard store.isEditMode else { return DropProposal(operation: .forbidden) }
-        guard store.draggingItemId != item.id else {
+        guard store.isEditMode, store.isDraggingApp, let draggingId = store.draggingItemId, draggingId != item.id else {
+            store.dropTarget = nil
             return DropProposal(operation: .forbidden)
         }
         updateDropTarget(info: info)
@@ -256,7 +257,10 @@ public struct AppCardDropDelegate: DropDelegate {
     }
 
     private func updateDropTarget(info: DropInfo) {
-        guard store.draggingItemId != item.id else { return }
+        guard store.isDraggingApp, let draggingId = store.draggingItemId, draggingId != item.id else {
+            store.dropTarget = nil
+            return
+        }
         // Determine whether hover is on leading or trailing side of card
         let edge: DropTargetState.Edge = (info.location.x < 48) ? .leading : .trailing
         if store.dropTarget?.collectionId != collectionId || store.dropTarget?.itemId != item.id || store.dropTarget?.edge != edge {
@@ -274,16 +278,17 @@ public struct AppCardDropDelegate: DropDelegate {
         guard store.isEditMode else { return false }
         let targetEdge = store.dropTarget?.edge ?? .trailing
         store.dropTarget = nil
+        store.isDraggingApp = false
 
         let fallbackSourceColId = store.draggingCollectionId
         let fallbackDraggedItemId = store.draggingItemId
+        store.draggingItemId = nil
+        store.draggingCollectionId = nil
 
         guard let provider = info.itemProviders(for: [UTType.text]).first else {
             if let draggedId = fallbackDraggedItemId, let sourceId = fallbackSourceColId {
                 self.commitDrop(draggedItemId: draggedId, sourceColId: sourceId, edge: targetEdge)
             }
-            store.draggingItemId = nil
-            store.draggingCollectionId = nil
             return true
         }
 
@@ -295,8 +300,10 @@ public struct AppCardDropDelegate: DropDelegate {
             let resolvedItemId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![1]) : nil) ?? fallbackDraggedItemId
 
             DispatchQueue.main.async {
+                self.store.isDraggingApp = false
                 self.store.draggingItemId = nil
                 self.store.draggingCollectionId = nil
+                self.store.dropTarget = nil
                 if let sId = resolvedSourceId, let iId = resolvedItemId {
                     self.commitDrop(draggedItemId: iId, sourceColId: sId, edge: targetEdge)
                 }
@@ -306,6 +313,11 @@ public struct AppCardDropDelegate: DropDelegate {
     }
 
     private func commitDrop(draggedItemId: UUID, sourceColId: UUID, edge: DropTargetState.Edge) {
+        store.dropTarget = nil
+        store.isDraggingApp = false
+        store.draggingItemId = nil
+        store.draggingCollectionId = nil
+
         guard let sourceCol = store.collections.first(where: { $0.id == sourceColId }),
               let targetCol = store.collections.first(where: { $0.id == collectionId }),
               let sourceIndex = sourceCol.items.firstIndex(where: { $0.id == draggedItemId }),

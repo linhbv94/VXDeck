@@ -118,6 +118,11 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         self.updateHeight(animated: true)
     }
 
+    public func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        // Strictly lock height to current height; only allow width to resize freely
+        return NSSize(width: frameSize.width, height: sender.frame.height)
+    }
+
     public func calculateEstimatedHeight(width: CGFloat) -> CGFloat {
         let collections = DeckStore.shared.collections
         if collections.isEmpty {
@@ -164,6 +169,9 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         let targetHeight = min(max(chosenHeight, minHeight), maxScreenHeight)
 
         let currentFrame = self.frame
+        self.minSize = NSSize(width: 440, height: targetHeight)
+        self.maxSize = NSSize(width: 1400, height: targetHeight)
+
         let diff = targetHeight - currentFrame.height
         if abs(diff) < 2 { return }
 
@@ -196,6 +204,9 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         let width: CGFloat = min(max(savedWidth, 440), visibleFrame.width - 40)
         let initialEstimated = calculateEstimatedHeight(width: width)
         let currentHeight = min(max(initialEstimated, 200), min(820, visibleFrame.height * 0.85))
+
+        self.minSize = NSSize(width: 440, height: currentHeight)
+        self.maxSize = NSSize(width: 1400, height: currentHeight)
 
         // Position horizontally centered, vertically in the lower half above the Dock
         let x = visibleFrame.origin.x + (visibleFrame.width - width) / 2

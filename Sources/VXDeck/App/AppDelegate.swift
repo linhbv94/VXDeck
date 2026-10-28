@@ -49,18 +49,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        Task { @MainActor in
-            _ = await withTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    await DeckStore.shared.flush()
-                }
-                group.addTask {
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                }
-                await group.next()
-            }
-            sender.reply(toApplicationShouldTerminate: true)
-        }
-        return .terminateLater
+        return .terminateNow
     }
 }

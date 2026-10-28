@@ -98,11 +98,9 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
     private func setupOutsideClickMonitor() {
         eventMonitor = EventMonitor(mask: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             let eventLocation = NSEvent.mouseLocation
-            let capturedSessionId = DeckStore.shared.windowSessionId
 
             Task { @MainActor in
-                guard let self = self, !self.isTerminating else { return }
-                guard DeckStore.shared.windowSessionId == capturedSessionId else { return }
+                guard let self = self, self.isVisible, !self.isTerminating else { return }
                 if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
 
                 // Check if click was outside the panel frame anywhere across all desktop monitors
@@ -191,6 +189,8 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
     }
 
     public func showPanel() {
+        isTerminating = false
+
         // Multi-monitor support: prioritize screen currently containing the mouse cursor
         let mouseLoc = NSEvent.mouseLocation
         let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(mouseLoc, $0.frame, false) })
@@ -239,6 +239,8 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         Task { @MainActor in
             await DeckStore.shared.flush()
             NSApp.terminate(nil)
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            exit(0)
         }
     }
 

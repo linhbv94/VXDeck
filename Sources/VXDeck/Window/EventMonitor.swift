@@ -1,11 +1,12 @@
 import AppKit
 
 public final class EventMonitor {
-    private var monitor: Any?
+    private var globalMonitor: Any?
+    private var localMonitor: Any?
     private let mask: NSEvent.EventTypeMask
-    private let handler: (NSEvent?) -> Void
+    private let handler: (NSEvent) -> Void
 
-    public init(mask: NSEvent.EventTypeMask, handler: @escaping (NSEvent?) -> Void) {
+    public init(mask: NSEvent.EventTypeMask, handler: @escaping (NSEvent) -> Void) {
         self.mask = mask
         self.handler = handler
     }
@@ -15,14 +16,27 @@ public final class EventMonitor {
     }
 
     public func start() {
-        guard monitor == nil else { return }
-        monitor = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: handler)
+        if globalMonitor == nil {
+            globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
+                self?.handler(event)
+            }
+        }
+        if localMonitor == nil {
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+                self?.handler(event)
+                return event
+            }
+        }
     }
 
     public func stop() {
-        if let mon = monitor {
+        if let mon = globalMonitor {
             NSEvent.removeMonitor(mon)
-            monitor = nil
+            globalMonitor = nil
+        }
+        if let mon = localMonitor {
+            NSEvent.removeMonitor(mon)
+            localMonitor = nil
         }
     }
 }

@@ -9,6 +9,7 @@ public final class DeckStore: ObservableObject {
     @Published public var isEditMode: Bool = false
     @Published public var isModalOpen: Bool = false
     @Published public var showAddCollectionDialog: Bool = false
+    @Published public var showSettingsModal: Bool = false
     @Published public var windowSessionId: UUID = UUID()
     @Published public var toastMessage: String? = nil
 
@@ -312,6 +313,33 @@ public final class DeckStore: ObservableObject {
         recalculateCollectionOrders()
         save()
         showToast("Đã xóa nhóm '\(title)'")
+    }
+
+    public func updateSettings(
+        autoHideOnLaunch: Bool? = nil,
+        columnsCount: Int? = nil,
+        iconSize: Int? = nil,
+        themeMode: String? = nil
+    ) {
+        if let autoHide = autoHideOnLaunch {
+            config.settings.autoHideOnLaunch = autoHide
+        }
+        if let columns = columnsCount {
+            config.settings.columnsCount = max(3, min(8, columns))
+        }
+        if let icon = iconSize {
+            config.settings.iconSize = max(32, min(64, icon))
+        }
+        if let theme = themeMode {
+            config.settings.themeMode = theme
+        }
+        save()
+    }
+
+    public func resetSettingsToDefaults() {
+        config.settings = DeckSettings()
+        save()
+        showToast("Đã khôi phục cài đặt mặc định")
     }
 
     private func recalculateCollectionOrders() {

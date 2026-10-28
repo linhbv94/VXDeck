@@ -70,6 +70,23 @@ public struct DeckHeaderView: View {
                 }
                 .buttonStyle(.plain)
                 .help(store.isEditMode ? "Hoàn tất chỉnh sửa [⌘E]" : "Bật chế độ chỉnh sửa [⌘E]")
+
+                // Settings Button
+                Button(action: {
+                    store.isModalOpen = true
+                    store.showSettingsModal = true
+                }) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.white.opacity(0.08))
+                        )
+                        .foregroundColor(Color(red: 0.85, green: 0.9, blue: 0.95))
+                }
+                .buttonStyle(.plain)
+                .help("Cài đặt & Giới thiệu [⌘,]")
             }
         }
         .frame(height: 44)

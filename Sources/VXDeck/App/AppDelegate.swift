@@ -14,6 +14,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let rootView = DeckRootView(
             onCloseRequested: { [weak deckPanel] in
                 deckPanel?.hidePanel()
+            },
+            onContentSizeChange: { [weak deckPanel] in
+                deckPanel?.updateHeight()
             }
         )
         .environmentObject(DeckStore.shared)
@@ -38,10 +41,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        Task { @MainActor in
-            await DeckStore.shared.flush()
-            sender.reply(toApplicationShouldTerminate: true)
-        }
-        return .terminateLater
+        return .terminateNow
     }
 }

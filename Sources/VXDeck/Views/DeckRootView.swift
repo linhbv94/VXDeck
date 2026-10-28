@@ -4,6 +4,7 @@ import VXDeckCore
 public struct DeckRootView: View {
     @EnvironmentObject var store: DeckStore
     let onCloseRequested: () -> Void
+    let onContentSizeChange: () -> Void
 
     @LocalState private var newGroupTitle = ""
 
@@ -88,6 +89,23 @@ public struct DeckRootView: View {
             .padding(20)
             .frame(width: 300)
             .background(Color(red: 0.1, green: 0.12, blue: 0.16))
+        }
+        .sheet(isPresented: $store.showSettingsModal) {
+            DeckSettingsView(onClose: {
+                store.isModalOpen = false
+                store.showSettingsModal = false
+            })
+            .environmentObject(store)
+        }
+        .onChange(of: store.collections) {
+            DispatchQueue.main.async {
+                onContentSizeChange()
+            }
+        }
+        .onChange(of: store.isEditMode) {
+            DispatchQueue.main.async {
+                onContentSizeChange()
+            }
         }
     }
 

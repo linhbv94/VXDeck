@@ -27,12 +27,17 @@ mkdir -p "${RESOURCES_DIR}"
 cp ".build/release/${APP_NAME}" "${MACOS_DIR}/${APP_NAME}"
 chmod +x "${MACOS_DIR}/${APP_NAME}"
 
-# Copy icon
+# Copy icon & assets
 if [ -f "${PROJECT_DIR}/icon.icns" ]; then
     cp "${PROJECT_DIR}/icon.icns" "${RESOURCES_DIR}/AppIcon.icns"
     echo "==> Copied icon.icns to AppIcon.icns"
 else
     echo "Warning: icon.icns not found in ${PROJECT_DIR}"
+fi
+
+if [ -f "${PROJECT_DIR}/Resources/qr.png" ]; then
+    cp "${PROJECT_DIR}/Resources/qr.png" "${RESOURCES_DIR}/qr.png"
+    echo "==> Copied qr.png to Resources"
 fi
 
 # Generate Info.plist

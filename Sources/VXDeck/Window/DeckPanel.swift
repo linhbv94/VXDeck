@@ -2,8 +2,9 @@ import AppKit
 import SwiftUI
 import VXDeckCore
 
-public final class DeckPanel: NSPanel, NSWindowDelegate {
+public final class DeckPanel: NSPanel {
     private var eventMonitor: EventMonitor?
+    private var isTerminating = false
 
     public init(contentRect: NSRect) {
         super.init(
@@ -13,7 +14,6 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
             defer: false
         )
 
-        self.delegate = self
         self.isFloatingPanel = true
         self.level = .floating
         self.isOpaque = false
@@ -21,45 +21,10 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         self.hasShadow = true
         self.isMovableByWindowBackground = true
         self.hidesOnDeactivate = false
-        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        self.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         self.animationBehavior = .utilityWindow
 
         setupOutsideClickMonitor()
-        setupResignActiveMonitor()
-        setupResignKeyMonitor()
-    }
-
-    private func setupResignKeyMonitor() {
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.didResignKeyNotification,
-            object: self,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self = self else { return }
-                if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
-                self.hidePanel()
-            }
-        }
-    }
-
-    private func setupResignActiveMonitor() {
-        NotificationCenter.default.addObserver(
-            forName: NSApplication.didResignActiveNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self = self else { return }
-                if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
-                self.hidePanel()
-            }
-        }
-    }
-
-    public func windowDidResignKey(_ notification: Notification) {
-        if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
-        self.hidePanel()
     }
 
     public override var canBecomeKey: Bool {
@@ -71,7 +36,7 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
     }
 
     public override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        // Intercept Escape and Cmd+E even if a child responder / textfield is focused
+        // Intercept Escape, Cmd+E, and Cmd+,
         if event.keyCode == 53 { // Escape
             if DeckStore.shared.isModalOpen {
                 return false
@@ -86,6 +51,12 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
 
         if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "e" {
             DeckStore.shared.toggleEditMode()
+            return true
+        }
+
+        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "," {
+            DeckStore.shared.isModalOpen = true
+            DeckStore.shared.showSettingsModal.toggle()
             return true
         }
 
@@ -108,6 +79,12 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
             return
         }
 
+        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "," {
+            DeckStore.shared.isModalOpen = true
+            DeckStore.shared.showSettingsModal.toggle()
+            return
+        }
+
         super.keyDown(with: event)
     }
 
@@ -117,15 +94,47 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
             let capturedSessionId = DeckStore.shared.windowSessionId
 
             Task { @MainActor in
-                guard let self = self else { return }
+                guard let self = self, !self.isTerminating else { return }
                 guard DeckStore.shared.windowSessionId == capturedSessionId else { return }
                 if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
 
-                if !self.frame.contains(eventLocation) {
+                // Check if click was on the same screen as the panel, but outside the panel frame
+                if let panelScreen = self.screen {
+                    if panelScreen.frame.contains(eventLocation) && !self.frame.contains(eventLocation) {
+                        self.hidePanel()
+                    }
+                } else if !self.frame.contains(eventLocation) {
                     self.hidePanel()
                 }
             }
         }
+    }
+
+    public func updateHeight(animated: Bool = true) {
+        guard !isTerminating, let screen = self.screen ?? NSScreen.main else { return }
+        let visibleFrame = screen.visibleFrame
+
+        let width = self.frame.width > 100 ? self.frame.width : min(620, visibleFrame.width - 40)
+        let fittingHeight = self.contentView?.fittingSize.height ?? 460
+        let targetHeight = min(max(fittingHeight > 100 ? fittingHeight : 460, 250), min(760, visibleFrame.height * 0.85))
+
+        let currentFrame = self.frame
+        let diff = targetHeight - currentFrame.height
+        if abs(diff) < 2 { return }
+
+        let newY = max(visibleFrame.origin.y + 20, currentFrame.origin.y - diff)
+        let newFrame = NSRect(x: currentFrame.origin.x, y: newY, width: width, height: targetHeight)
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                self.animator().setFrame(newFrame, display: true)
+            }
+        } else {
+            self.setFrame(newFrame, display: true)
+        }
+        self.invalidateShadow()
     }
 
     public func showPanel() {
@@ -158,12 +167,19 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
     }
 
     public func hidePanel() {
+        guard !isTerminating else { return }
+        isTerminating = true
+
         eventMonitor?.stop()
         self.orderOut(nil)
         if DeckStore.shared.isEditMode {
             DeckStore.shared.setEditMode(false)
         }
-        NSApp.terminate(nil)
+
+        Task { @MainActor in
+            await DeckStore.shared.flush()
+            NSApp.terminate(nil)
+        }
     }
 
     public func togglePanel() {

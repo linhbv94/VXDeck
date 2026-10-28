@@ -11,13 +11,10 @@ public struct CollectionSectionView: View {
     @LocalState private var titleDraft = ""
     @LocalState private var showDeleteConfirm = false
 
-    private let columns = [
-        GridItem(.fixed(100), spacing: 14),
-        GridItem(.fixed(100), spacing: 14),
-        GridItem(.fixed(100), spacing: 14),
-        GridItem(.fixed(100), spacing: 14),
-        GridItem(.fixed(100), spacing: 14)
-    ]
+    private var columns: [GridItem] {
+        let count = max(3, min(8, store.settings.columnsCount))
+        return Array(repeating: GridItem(.fixed(100), spacing: 14), count: count)
+    }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {

@@ -25,3 +25,4 @@ DerivedData/
 *.bak
 *.log
 .deck_config.json*
+build/

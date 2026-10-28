@@ -78,6 +78,7 @@ public struct DeckRootView: View {
                 onHoverChanged: { isHoveringResizeEdge = $0 },
                 onEnd: onContentSizeChange
             )
+            .padding(.vertical, 16)
         }
         .overlay(alignment: .trailing) {
             WindowResizeHandle(
@@ -85,6 +86,7 @@ public struct DeckRootView: View {
                 onHoverChanged: { isHoveringResizeEdge = $0 },
                 onEnd: onContentSizeChange
             )
+            .padding(.vertical, 16)
         }
         .sheet(isPresented: $store.showAddCollectionDialog, onDismiss: {
             store.isModalOpen = false
@@ -230,18 +232,15 @@ private struct WindowResizeHandle: View {
     let onEnd: () -> Void
 
     @LocalState private var isHovering = false
-    @LocalState private var startFrame: NSRect? = nil
-
-    private var deckPanel: DeckPanel? {
-        (NSApp.keyWindow as? DeckPanel) ?? (NSApp.windows.first(where: { $0 is DeckPanel }) as? DeckPanel)
-    }
 
     var body: some View {
         ZStack(alignment: side == .left ? .leading : .trailing) {
-            // Invisible hit-test area (10pt wide)
-            Color.clear
-                .frame(width: 10)
-                .contentShape(Rectangle())
+            ResizeTrackingRepresentable(side: side) { hovering in
+                isHovering = hovering
+                onHoverChanged(hovering)
+            } onEnded: {
+                onEnd()
+            }
 
             // Refined glowing indicator pill safely centered and inset from window corners
             if isHovering {
@@ -256,58 +255,114 @@ private struct WindowResizeHandle: View {
                         .frame(width: 3, height: 38)
                 }
                 .padding(side == .left ? .leading : .trailing, 1.5)
+                .allowsHitTesting(false)
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
-        .frame(width: 10)
-        .onHover { hovering in
-            isHovering = hovering
-            onHoverChanged(hovering)
-            if hovering {
-                NSCursor.resizeLeftRight.push()
-            } else {
-                NSCursor.pop()
+        .frame(width: 12)
+    }
+}
+
+private struct ResizeTrackingRepresentable: NSViewRepresentable {
+    let side: WindowResizeHandle.Side
+    let onHoverChanged: (Bool) -> Void
+    let onEnded: () -> Void
+
+    func makeNSView(context: Context) -> ResizeTrackingNSView {
+        let view = ResizeTrackingNSView()
+        view.side = side
+        view.onHoverChanged = onHoverChanged
+        view.onEnded = onEnded
+        return view
+    }
+
+    func updateNSView(_ nsView: ResizeTrackingNSView, context: Context) {
+        nsView.side = side
+        nsView.onHoverChanged = onHoverChanged
+        nsView.onEnded = onEnded
+    }
+}
+
+private final class ResizeTrackingNSView: NSView {
+    var side: WindowResizeHandle.Side = .right
+    var onHoverChanged: ((Bool) -> Void)?
+    var onEnded: (() -> Void)?
+
+    private var trackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways, .inVisibleRect]
+        trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        NSCursor.resizeLeftRight.push()
+        onHoverChanged?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        NSCursor.pop()
+        onHoverChanged?(false)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window = self.window else { return }
+        let initialMouseLoc = NSEvent.mouseLocation
+        let initialFrame = window.frame
+        guard let screen = window.screen ?? NSScreen.main else { return }
+        let visibleFrame = screen.visibleFrame
+
+        let minWidth: CGFloat = 440
+        let maxWidth: CGFloat = min(1400, visibleFrame.width - 40)
+
+        while true {
+            guard let nextEvent = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) else {
+                continue
+            }
+            if nextEvent.type == .leftMouseUp {
+                break
+            }
+
+            let currentMouseLoc = NSEvent.mouseLocation
+            let deltaX = currentMouseLoc.x - initialMouseLoc.x
+
+            switch side {
+            case .right:
+                let targetWidth = initialFrame.width + deltaX
+                let newWidth = max(minWidth, min(maxWidth, targetWidth))
+                let newFrame = NSRect(
+                    x: initialFrame.origin.x,
+                    y: initialFrame.origin.y,
+                    width: newWidth,
+                    height: initialFrame.height
+                )
+                window.setFrame(newFrame, display: true)
+
+            case .left:
+                let targetWidth = initialFrame.width - deltaX
+                let newWidth = max(minWidth, min(maxWidth, targetWidth))
+                let actualDiff = initialFrame.width - newWidth
+                let newX = initialFrame.origin.x + actualDiff
+                let newFrame = NSRect(
+                    x: newX,
+                    y: initialFrame.origin.y,
+                    width: newWidth,
+                    height: initialFrame.height
+                )
+                window.setFrame(newFrame, display: true)
             }
         }
-        .gesture(
-            DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                .onChanged { value in
-                    guard let panel = deckPanel, let screen = panel.screen ?? NSScreen.main else { return }
-                    let visibleFrame = screen.visibleFrame
 
-                    if startFrame == nil {
-                        startFrame = panel.frame
-                    }
-                    guard let base = startFrame else { return }
-
-                    let minWidth: CGFloat = 440
-                    let maxWidth: CGFloat = min(1400, visibleFrame.width - 40)
-
-                    switch side {
-                    case .right:
-                        let targetWidth = base.width + value.translation.width
-                        let newWidth = max(minWidth, min(maxWidth, targetWidth))
-                        let newFrame = NSRect(x: base.origin.x, y: base.origin.y, width: newWidth, height: base.height)
-                        panel.setFrame(newFrame, display: true)
-
-                    case .left:
-                        let targetWidth = base.width - value.translation.width
-                        let newWidth = max(minWidth, min(maxWidth, targetWidth))
-                        let actualDiff = base.width - newWidth
-                        let newX = base.origin.x + actualDiff
-                        let newFrame = NSRect(x: newX, y: base.origin.y, width: newWidth, height: base.height)
-                        panel.setFrame(newFrame, display: true)
-                    }
-                }
-                .onEnded { _ in
-                    guard let panel = deckPanel else {
-                        startFrame = nil
-                        return
-                    }
-                    startFrame = nil
-                    DeckStore.shared.updateWindowWidth(Double(panel.frame.width))
-                    onEnd()
-                }
-        )
+        let finalWidth = Double(window.frame.width)
+        DeckStore.shared.updateWindowWidth(finalWidth)
+        Task {
+            await DeckStore.shared.flush()
+        }
+        onEnded?()
     }
 }

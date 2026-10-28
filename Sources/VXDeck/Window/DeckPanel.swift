@@ -112,7 +112,11 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
     }
 
     public func windowDidEndLiveResize(_ notification: Notification) {
-        DeckStore.shared.updateWindowWidth(Double(self.frame.width))
+        let finalWidth = Double(self.frame.width)
+        DeckStore.shared.updateWindowWidth(finalWidth)
+        Task {
+            await DeckStore.shared.flush()
+        }
         self.updateHeight(animated: true)
     }
 
@@ -148,33 +152,29 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
     }
 
     public func updateHeight(targetTotalHeight: CGFloat? = nil, animated: Bool = true) {
-        guard !isTerminating, let screen = self.screen ?? NSScreen.main else { return }
+        guard !isTerminating, self.isVisible, let screen = self.screen ?? NSScreen.main else { return }
         let visibleFrame = screen.visibleFrame
-
-        let savedWidth = CGFloat(DeckStore.shared.settings.windowWidth)
-        let width = self.frame.width > 100 ? self.frame.width : min(max(savedWidth, 440), visibleFrame.width - 40)
-
-        let maxScreenHeight = min(820, visibleFrame.height * 0.85)
-        let minHeight: CGFloat = 200
+        let currentFrame = self.frame
 
         let chosenHeight: CGFloat
         if let target = targetTotalHeight, target > 50 {
             chosenHeight = target
         } else {
-            chosenHeight = calculateEstimatedHeight(width: width)
+            chosenHeight = calculateEstimatedHeight(width: currentFrame.width)
         }
 
+        let maxScreenHeight = min(820, visibleFrame.height * 0.85)
+        let minHeight: CGFloat = 200
         let targetHeight = min(max(chosenHeight, minHeight), maxScreenHeight)
 
-        let currentFrame = self.frame
         self.minSize = NSSize(width: 440, height: targetHeight)
         self.maxSize = NSSize(width: 1400, height: targetHeight)
 
         let diff = targetHeight - currentFrame.height
         if abs(diff) < 2 { return }
 
-        let newY = max(visibleFrame.origin.y + 20, currentFrame.origin.y - diff)
-        let newFrame = NSRect(x: currentFrame.origin.x, y: newY, width: width, height: targetHeight)
+        let newY = max(visibleFrame.origin.y + 40, currentFrame.origin.y - diff)
+        let newFrame = NSRect(x: currentFrame.origin.x, y: newY, width: currentFrame.width, height: targetHeight)
 
         if animated {
             NSAnimationContext.runAnimationGroup { context in
@@ -242,7 +242,7 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
                     await DeckStore.shared.flush()
                 }
                 group.addTask {
-                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
                 }
                 await group.next()
                 group.cancelAll()

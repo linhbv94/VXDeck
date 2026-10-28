@@ -17,6 +17,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onContentSizeChange: { [weak deckPanel] in
                 deckPanel?.updateHeight()
+            },
+            onHeightMeasured: { [weak deckPanel] totalHeight in
+                deckPanel?.updateHeight(targetTotalHeight: totalHeight, animated: true)
             }
         )
         .environmentObject(DeckStore.shared)

@@ -5,6 +5,7 @@ public struct DeckRootView: View {
     @EnvironmentObject var store: DeckStore
     let onCloseRequested: () -> Void
     let onContentSizeChange: () -> Void
+    let onHeightMeasured: (CGFloat) -> Void
 
     @LocalState private var newGroupTitle = ""
 
@@ -34,8 +35,12 @@ public struct DeckRootView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 16)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(key: ContentHeightPreferenceKey.self, value: geo.size.height)
+                        }
+                    )
                 }
-                .frame(minHeight: 180, maxHeight: 680)
 
                 // Footer Bar (28pt)
                 DeckFooterView()
@@ -102,6 +107,11 @@ public struct DeckRootView: View {
                 store.showSettingsModal = false
             })
             .environmentObject(store)
+        }
+        .onPreferenceChange(ContentHeightPreferenceKey.self) { measuredHeight in
+            guard measuredHeight > 20 else { return }
+            let totalHeight = measuredHeight + 44 + 28
+            onHeightMeasured(totalHeight)
         }
         .onChange(of: store.collections) {
             DispatchQueue.main.async {
@@ -179,6 +189,13 @@ public struct DeckRootView: View {
     }
 }
 
+struct ContentHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 private struct WindowResizeHandle: View {
     enum Side {
         case left
@@ -188,7 +205,6 @@ private struct WindowResizeHandle: View {
     let side: Side
     let onEnd: () -> Void
 
-    @LocalState private var isHovering = false
     @LocalState private var startFrame: NSRect? = nil
 
     private var deckPanel: DeckPanel? {
@@ -197,11 +213,10 @@ private struct WindowResizeHandle: View {
 
     var body: some View {
         Rectangle()
-            .fill(isHovering ? Color.cyan.opacity(0.18) : Color.clear)
-            .frame(width: 8)
+            .fill(Color.clear)
+            .frame(width: 6)
             .contentShape(Rectangle())
             .onHover { hovering in
-                isHovering = hovering
                 if hovering {
                     NSCursor.resizeLeftRight.push()
                 } else {

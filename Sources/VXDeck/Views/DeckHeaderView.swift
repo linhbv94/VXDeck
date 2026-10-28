@@ -91,12 +91,33 @@ public struct DeckHeaderView: View {
         }
         .frame(height: 44)
         .padding(.horizontal, 16)
-        .background(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.7))
+        .background(
+            ZStack {
+                Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.7)
+                WindowDragBackground()
+            }
+        )
         .overlay(
             Rectangle()
                 .fill(Color.white.opacity(0.08))
                 .frame(height: 1),
             alignment: .bottom
         )
+    }
+}
+
+public struct WindowDragBackground: NSViewRepresentable {
+    public init() {}
+
+    public func makeNSView(context: Context) -> NSView {
+        WindowDragView()
+    }
+
+    public func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+private final class WindowDragView: NSView {
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
     }
 }

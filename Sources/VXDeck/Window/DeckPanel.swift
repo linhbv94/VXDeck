@@ -20,7 +20,7 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = true
-        self.isMovableByWindowBackground = true
+        self.isMovableByWindowBackground = false
         self.hidesOnDeactivate = false
         self.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         self.animationBehavior = .utilityWindow
@@ -118,14 +118,50 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         self.updateHeight(animated: true)
     }
 
-    public func updateHeight(animated: Bool = true) {
+    public func calculateEstimatedHeight(width: CGFloat) -> CGFloat {
+        let collections = DeckStore.shared.collections
+        if collections.isEmpty {
+            return 320
+        }
+
+        let availableWidth = width - 48
+        let colCount = max(3, Int(floor((availableWidth + 12) / 100)))
+
+        var totalSectionHeights: CGFloat = 0
+        for col in collections {
+            let itemCount = col.items.count + (DeckStore.shared.isEditMode ? 1 : 0)
+            let rows = max(1, Int(ceil(Double(itemCount) / Double(colCount))))
+            let gridHeight = CGFloat(rows) * 86 + CGFloat(max(0, rows - 1)) * 12
+            let sectionHeight = 32 + gridHeight + 16
+            totalSectionHeights += sectionHeight
+        }
+
+        let interSectionSpacing = CGFloat(max(0, collections.count - 1)) * 16
+        let editBarHeight: CGFloat = DeckStore.shared.isEditMode ? 56 : 0
+        let outerPadding: CGFloat = 32
+        let chromeHeight: CGFloat = 44 + 28 // Header 44 + Footer 28
+
+        return totalSectionHeights + interSectionSpacing + editBarHeight + outerPadding + chromeHeight
+    }
+
+    public func updateHeight(targetTotalHeight: CGFloat? = nil, animated: Bool = true) {
         guard !isTerminating, let screen = self.screen ?? NSScreen.main else { return }
         let visibleFrame = screen.visibleFrame
 
         let savedWidth = CGFloat(DeckStore.shared.settings.windowWidth)
         let width = self.frame.width > 100 ? self.frame.width : min(max(savedWidth, 440), visibleFrame.width - 40)
-        let fittingHeight = self.contentView?.fittingSize.height ?? 460
-        let targetHeight = min(max(fittingHeight > 100 ? fittingHeight : 460, 250), min(760, visibleFrame.height * 0.85))
+
+        let maxScreenHeight = min(820, visibleFrame.height * 0.85)
+        let minHeight: CGFloat = 200
+
+        let chosenHeight: CGFloat
+        if let target = targetTotalHeight, target > 50 {
+            chosenHeight = target
+        } else {
+            chosenHeight = calculateEstimatedHeight(width: width)
+        }
+
+        let targetHeight = min(max(chosenHeight, minHeight), maxScreenHeight)
 
         let currentFrame = self.frame
         let diff = targetHeight - currentFrame.height
@@ -158,8 +194,8 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
 
         let savedWidth = CGFloat(DeckStore.shared.settings.windowWidth)
         let width: CGFloat = min(max(savedWidth, 440), visibleFrame.width - 40)
-        let fittingHeight = self.contentView?.fittingSize.height ?? 460
-        let currentHeight = min(max(fittingHeight > 100 ? fittingHeight : 460, 250), min(760, visibleFrame.height * 0.85))
+        let initialEstimated = calculateEstimatedHeight(width: width)
+        let currentHeight = min(max(initialEstimated, 200), min(820, visibleFrame.height * 0.85))
 
         // Position horizontally centered, vertically in the lower half above the Dock
         let x = visibleFrame.origin.x + (visibleFrame.width - width) / 2

@@ -29,6 +29,17 @@ public struct AppCardView: View {
     }
 
     public var body: some View {
+        if store.isEditMode {
+            cardContent
+        } else {
+            cardContent
+                .onTapGesture {
+                    launchApp()
+                }
+        }
+    }
+
+    private var cardContent: some View {
         VStack(spacing: 6) {
             iconBadgeView
             labelContentView
@@ -52,11 +63,6 @@ public struct AppCardView: View {
         }
         .onHover { hovering in
             isHovered = hovering
-        }
-        .onTapGesture {
-            if !store.isEditMode {
-                launchApp()
-            }
         }
         .contextMenu {
             contextMenuButtons
@@ -269,37 +275,31 @@ public struct AppCardDropDelegate: DropDelegate {
         let targetEdge = store.dropTarget?.edge ?? .trailing
         store.dropTarget = nil
 
+        let fallbackSourceColId = store.draggingCollectionId
+        let fallbackDraggedItemId = store.draggingItemId
+
         guard let provider = info.itemProviders(for: [UTType.text]).first else {
+            if let draggedId = fallbackDraggedItemId, let sourceId = fallbackSourceColId {
+                self.commitDrop(draggedItemId: draggedId, sourceColId: sourceId, edge: targetEdge)
+            }
             store.draggingItemId = nil
             store.draggingCollectionId = nil
-            return false
+            return true
         }
 
         provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { (itemData, error) in
-            guard let data = itemData as? Data ?? (itemData as? String)?.data(using: .utf8),
-                  let str = String(data: data, encoding: .utf8) else {
-                DispatchQueue.main.async {
-                    self.store.draggingItemId = nil
-                    self.store.draggingCollectionId = nil
-                }
-                return
-            }
+            let str = (itemData as? Data).flatMap { String(data: $0, encoding: .utf8) } ?? (itemData as? String)
+            let parts = str?.components(separatedBy: ":")
 
-            let parts = str.components(separatedBy: ":")
-            guard parts.count == 2,
-                  let sourceColId = UUID(uuidString: parts[0]),
-                  let draggedItemId = UUID(uuidString: parts[1]) else {
-                DispatchQueue.main.async {
-                    self.store.draggingItemId = nil
-                    self.store.draggingCollectionId = nil
-                }
-                return
-            }
+            let resolvedSourceId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![0]) : nil) ?? fallbackSourceColId
+            let resolvedItemId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![1]) : nil) ?? fallbackDraggedItemId
 
             DispatchQueue.main.async {
                 self.store.draggingItemId = nil
                 self.store.draggingCollectionId = nil
-                self.commitDrop(draggedItemId: draggedItemId, sourceColId: sourceColId, edge: targetEdge)
+                if let sId = resolvedSourceId, let iId = resolvedItemId {
+                    self.commitDrop(draggedItemId: iId, sourceColId: sId, edge: targetEdge)
+                }
             }
         }
         return true

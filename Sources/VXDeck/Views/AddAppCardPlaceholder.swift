@@ -116,47 +116,45 @@ public struct PlaceholderDropDelegate: DropDelegate {
 
     public func performDrop(info: DropInfo) -> Bool {
         store.dropTarget = nil
+        let fallbackSourceColId = store.draggingCollectionId
+        let fallbackDraggedItemId = store.draggingItemId
+
         guard let provider = info.itemProviders(for: [UTType.text]).first else {
+            if let draggedId = fallbackDraggedItemId, let sourceId = fallbackSourceColId {
+                self.commitDrop(draggedItemId: draggedId, sourceColId: sourceId)
+            }
             store.draggingItemId = nil
             store.draggingCollectionId = nil
-            return false
+            return true
         }
 
         provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { (itemData, error) in
-            guard let data = itemData as? Data ?? (itemData as? String)?.data(using: .utf8),
-                  let str = String(data: data, encoding: .utf8) else {
-                DispatchQueue.main.async {
-                    self.store.draggingItemId = nil
-                    self.store.draggingCollectionId = nil
-                }
-                return
-            }
+            let str = (itemData as? Data).flatMap { String(data: $0, encoding: .utf8) } ?? (itemData as? String)
+            let parts = str?.components(separatedBy: ":")
 
-            let parts = str.components(separatedBy: ":")
-            guard parts.count == 2,
-                  let sourceColId = UUID(uuidString: parts[0]),
-                  let draggedItemId = UUID(uuidString: parts[1]) else {
-                DispatchQueue.main.async {
-                    self.store.draggingItemId = nil
-                    self.store.draggingCollectionId = nil
-                }
-                return
-            }
+            let resolvedSourceId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![0]) : nil) ?? fallbackSourceColId
+            let resolvedItemId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![1]) : nil) ?? fallbackDraggedItemId
 
             DispatchQueue.main.async {
                 self.store.draggingItemId = nil
                 self.store.draggingCollectionId = nil
-                guard let targetCol = self.store.collections.first(where: { $0.id == self.collectionId }) else { return }
-
-                if sourceColId == self.collectionId {
-                    guard let sourceCol = self.store.collections.first(where: { $0.id == sourceColId }),
-                          let sourceIndex = sourceCol.items.firstIndex(where: { $0.id == draggedItemId }) else { return }
-                    self.store.reorderItems(inCollectionId: self.collectionId, from: sourceIndex, to: targetCol.items.count)
-                } else {
-                    self.store.moveItem(itemId: draggedItemId, fromCollectionId: sourceColId, toCollectionId: self.collectionId, targetIndex: targetCol.items.count)
+                if let sId = resolvedSourceId, let iId = resolvedItemId {
+                    self.commitDrop(draggedItemId: iId, sourceColId: sId)
                 }
             }
         }
         return true
+    }
+
+    private func commitDrop(draggedItemId: UUID, sourceColId: UUID) {
+        guard let targetCol = self.store.collections.first(where: { $0.id == self.collectionId }) else { return }
+
+        if sourceColId == self.collectionId {
+            guard let sourceCol = self.store.collections.first(where: { $0.id == sourceColId }),
+                  let sourceIndex = sourceCol.items.firstIndex(where: { $0.id == draggedItemId }) else { return }
+            self.store.reorderItems(inCollectionId: self.collectionId, from: sourceIndex, to: targetCol.items.count)
+        } else {
+            self.store.moveItem(itemId: draggedItemId, fromCollectionId: sourceColId, toCollectionId: self.collectionId, targetIndex: targetCol.items.count)
+        }
     }
 }

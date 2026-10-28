@@ -36,6 +36,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if let panel = panel, panel.isVisible {
+            if DeckStore.shared.isModalOpen {
+                panel.makeKeyAndOrderFront(nil)
+                return true
+            }
             panel.hidePanel()
         } else {
             panel?.showPanel()
@@ -44,6 +48,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        return .terminateNow
+        Task { @MainActor in
+            _ = await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    await DeckStore.shared.flush()
+                }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                }
+                await group.next()
+            }
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }

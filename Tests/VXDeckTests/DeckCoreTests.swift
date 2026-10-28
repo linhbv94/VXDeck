@@ -14,7 +14,10 @@ struct DeckCoreTests {
         print("  ✓ testDefaultSeedGeneration: PASS")
 
         await testDeckStoreCollectionAndItemOperations()
-        print("  ✓ testDeckStoreCollectionAndItemOperations (isolated sandbox): PASS")
+        print("  ✓ testDeckStoreCollectionAndItemOperations (isolated sandbox & readback): PASS")
+
+        await testConfigBackupRecovery()
+        print("  ✓ testConfigBackupRecovery: PASS")
 
         testIconProvider()
         print("  ✓ testIconProvider: PASS")
@@ -144,6 +147,47 @@ struct DeckCoreTests {
         // Window width update
         store.updateWindowWidth(780)
         assert(store.settings.windowWidth == 780, "Window width should be updated to 780")
+
+        // Wait for asynchronous persistence to flush
+        await store.flush()
+
+        // Readback check from disk to ensure persistence integrity
+        let readbackConfig = await testConfigManager.loadConfig()
+        assert(readbackConfig.settings.windowWidth == 780, "Readback windowWidth should be 780")
+
+        // Clean up sandbox
+        try? FileManager.default.removeItem(at: tempDir)
+    }
+
+    static func testConfigBackupRecovery() async {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vxdeck_recovery_\(UUID().uuidString)", isDirectory: true)
+        let configManager = ConfigManager(customDirectoryURL: tempDir)
+
+        // 1. Save valid initial config
+        var config = DeckConfig.defaultSeed()
+        config.settings.windowWidth = 820
+        try? await configManager.saveConfig(config, revision: 1)
+        await configManager.flush()
+
+        // 2. Perform second save to generate .bak file
+        config.settings.windowWidth = 920
+        try? await configManager.saveConfig(config, revision: 2)
+        await configManager.flush()
+
+        // Verify primary and backup files exist
+        let mainFile = tempDir.appendingPathComponent("deck_config.json")
+        let backupFile = tempDir.appendingPathComponent("deck_config.json.bak")
+        assert(FileManager.default.fileExists(atPath: mainFile.path), "Primary config file must exist")
+        assert(FileManager.default.fileExists(atPath: backupFile.path), "Backup config file must exist")
+
+        // 3. Delete primary config file to simulate corruption / lost file
+        try? FileManager.default.removeItem(at: mainFile)
+        assert(!FileManager.default.fileExists(atPath: mainFile.path), "Primary file should be deleted")
+
+        // 4. Load config: should recover from .bak (width 820)
+        let recovered = await configManager.loadConfig()
+        assert(recovered.settings.windowWidth == 820, "Should have recovered from .bak file with width 820")
 
         // Clean up sandbox
         try? FileManager.default.removeItem(at: tempDir)

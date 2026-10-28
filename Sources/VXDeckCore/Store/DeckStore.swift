@@ -18,6 +18,7 @@ public final class DeckStore: ObservableObject {
     @Published public var dropTarget: DropTargetState? = nil
     @Published public var draggingItemId: UUID? = nil
     @Published public var draggingCollectionId: UUID? = nil
+    @Published public var currentDragSessionId: UUID? = nil
 
     public private(set) var currentRevision: Int = 1
     private let configManager: ConfigManager
@@ -87,23 +88,32 @@ public final class DeckStore: ObservableObject {
         await configManager.flush()
     }
 
+    public func startDrag(itemId: UUID, collectionId: UUID) -> UUID {
+        let session = UUID()
+        currentDragSessionId = session
+        isDraggingApp = true
+        draggingItemId = itemId
+        draggingCollectionId = collectionId
+        dropTarget = nil
+        return session
+    }
+
+    public func cancelDrag() {
+        isDraggingApp = false
+        dropTarget = nil
+        draggingItemId = nil
+        draggingCollectionId = nil
+        currentDragSessionId = nil
+    }
+
     public func toggleEditMode() {
-        isEditMode.toggle()
-        if !isEditMode {
-            save()
-            Task {
-                await flush()
-            }
-        }
+        setEditMode(!isEditMode)
     }
 
     public func setEditMode(_ active: Bool) {
         guard isEditMode != active else { return }
         isEditMode = active
-        isDraggingApp = false
-        dropTarget = nil
-        draggingItemId = nil
-        draggingCollectionId = nil
+        cancelDrag()
         if !isEditMode {
             save()
             Task {

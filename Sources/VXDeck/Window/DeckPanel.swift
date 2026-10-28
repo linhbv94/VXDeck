@@ -68,6 +68,10 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
 
     public override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
+            if DeckStore.shared.isDraggingApp {
+                DeckStore.shared.cancelDrag()
+                return
+            }
             if DeckStore.shared.isModalOpen { return }
             if DeckStore.shared.isEditMode {
                 DeckStore.shared.setEditMode(false)
@@ -101,12 +105,8 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
                 guard DeckStore.shared.windowSessionId == capturedSessionId else { return }
                 if DeckStore.shared.isModalOpen || DeckStore.shared.isEditMode { return }
 
-                // Check if click was on the same screen as the panel, but outside the panel frame
-                if let panelScreen = self.screen {
-                    if panelScreen.frame.contains(eventLocation) && !self.frame.contains(eventLocation) {
-                        self.hidePanel()
-                    }
-                } else if !self.frame.contains(eventLocation) {
+                // Check if click was outside the panel frame anywhere across all desktop monitors
+                if !self.frame.contains(eventLocation) {
                     self.hidePanel()
                 }
             }
@@ -223,7 +223,10 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         eventMonitor?.start()
     }
 
-    public func hidePanel() {
+    public func hidePanel(force: Bool = false) {
+        if !force && DeckStore.shared.isModalOpen {
+            return
+        }
         guard !isTerminating else { return }
         isTerminating = true
 
@@ -241,6 +244,7 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
 
     public func togglePanel() {
         if self.isVisible && self.isKeyWindow {
+            if DeckStore.shared.isModalOpen { return }
             hidePanel()
         } else {
             showPanel()

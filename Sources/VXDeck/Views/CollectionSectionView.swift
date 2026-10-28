@@ -105,9 +105,7 @@ public struct CollectionSectionView: View {
                             onLaunchRequested: onLaunchRequested
                         )
                         .onDrag {
-                            store.isDraggingApp = true
-                            store.draggingItemId = item.id
-                            store.draggingCollectionId = collection.id
+                            _ = store.startDrag(itemId: item.id, collectionId: collection.id)
                             return NSItemProvider(object: "\(collection.id.uuidString):\(item.id.uuidString)" as NSString)
                         }
                         .onDrop(

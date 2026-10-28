@@ -118,12 +118,15 @@ public struct PlaceholderDropDelegate: DropDelegate {
     }
 
     public func performDrop(info: DropInfo) -> Bool {
-        store.dropTarget = nil
-        store.isDraggingApp = false
+        guard store.isEditMode else {
+            store.cancelDrag()
+            return false
+        }
+        let session = store.currentDragSessionId
         let fallbackSourceColId = store.draggingCollectionId
         let fallbackDraggedItemId = store.draggingItemId
-        store.draggingItemId = nil
-        store.draggingCollectionId = nil
+
+        store.cancelDrag()
 
         guard let provider = info.itemProviders(for: [UTType.text]).first else {
             if let draggedId = fallbackDraggedItemId, let sourceId = fallbackSourceColId {
@@ -140,10 +143,9 @@ public struct PlaceholderDropDelegate: DropDelegate {
             let resolvedItemId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![1]) : nil) ?? fallbackDraggedItemId
 
             DispatchQueue.main.async {
-                self.store.isDraggingApp = false
-                self.store.draggingItemId = nil
-                self.store.draggingCollectionId = nil
-                self.store.dropTarget = nil
+                guard self.store.isEditMode, self.store.currentDragSessionId == session || self.store.currentDragSessionId == nil else {
+                    return
+                }
                 if let sId = resolvedSourceId, let iId = resolvedItemId {
                     self.commitDrop(draggedItemId: iId, sourceColId: sId)
                 }
@@ -153,10 +155,7 @@ public struct PlaceholderDropDelegate: DropDelegate {
     }
 
     private func commitDrop(draggedItemId: UUID, sourceColId: UUID) {
-        store.dropTarget = nil
-        store.isDraggingApp = false
-        store.draggingItemId = nil
-        store.draggingCollectionId = nil
+        store.cancelDrag()
 
         guard let targetCol = self.store.collections.first(where: { $0.id == self.collectionId }) else { return }
 

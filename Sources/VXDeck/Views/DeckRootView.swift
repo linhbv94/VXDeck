@@ -69,10 +69,7 @@ public struct DeckRootView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onDrop(of: [UTType.text], isTargeted: nil) { _ in
-            store.isDraggingApp = false
-            store.draggingItemId = nil
-            store.draggingCollectionId = nil
-            store.dropTarget = nil
+            store.cancelDrag()
             return false
         }
         .overlay(alignment: .leading) {
@@ -89,7 +86,10 @@ public struct DeckRootView: View {
                 onEnd: onContentSizeChange
             )
         }
-        .sheet(isPresented: $store.showAddCollectionDialog) {
+        .sheet(isPresented: $store.showAddCollectionDialog, onDismiss: {
+            store.isModalOpen = false
+            newGroupTitle = ""
+        }) {
             VStack(spacing: 16) {
                 Text("Tạo Bộ Sưu Tập Mới")
                     .font(.system(size: 13, weight: .bold))
@@ -122,7 +122,9 @@ public struct DeckRootView: View {
             .frame(width: 300)
             .background(Color(red: 0.1, green: 0.12, blue: 0.16))
         }
-        .sheet(isPresented: $store.showSettingsModal) {
+        .sheet(isPresented: $store.showSettingsModal, onDismiss: {
+            store.isModalOpen = false
+        }) {
             DeckSettingsView(onClose: {
                 store.isModalOpen = false
                 store.showSettingsModal = false

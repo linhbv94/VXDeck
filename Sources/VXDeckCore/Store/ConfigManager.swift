@@ -55,42 +55,49 @@ public actor ConfigManager {
             return DeckConfig.defaultSeed()
         }
 
-        let path = configFileURL.path
-        if !fileManager.fileExists(atPath: path) {
+        let mainFileExists = fileManager.fileExists(atPath: configFileURL.path)
+        let backupFileExists = fileManager.fileExists(atPath: backupFileURL.path)
+
+        // If neither primary nor backup exists, write default seed and return
+        if !mainFileExists && !backupFileExists {
             let seed = DeckConfig.defaultSeed()
             saveConfigSync(seed, revision: 1)
             return seed
         }
 
-        do {
-            let data = try Data(contentsOf: configFileURL)
-            let config = try decoder.decode(DeckConfig.self, from: data)
-            // Validate minimum required schema integrity
-            if config.schemaVersion < 1 {
-                throw DecodingError.dataCorrupted(
-                    DecodingError.Context(codingPath: [], debugDescription: "Invalid schema version")
-                )
+        // Try loading from primary config file
+        if mainFileExists {
+            do {
+                let data = try Data(contentsOf: configFileURL)
+                let config = try decoder.decode(DeckConfig.self, from: data)
+                try config.validate()
+                return config
+            } catch {
+                print("[VXDeck] Corrupted primary config file detected: \(error)")
+                handleCorruptConfigFile()
             }
-            return config
-        } catch {
-            print("[VXDeck] Corrupted config file detected: \(error)")
-            handleCorruptConfigFile()
+        }
 
-            // Try restoring from .bak
-            if fileManager.fileExists(atPath: backupFileURL.path) {
-                if let backupData = try? Data(contentsOf: backupFileURL),
-                   let backupConfig = try? decoder.decode(DeckConfig.self, from: backupData),
-                   backupConfig.schemaVersion >= 1 {
+        // Try restoring from .bak if primary was missing or corrupt
+        if backupFileExists {
+            if let backupData = try? Data(contentsOf: backupFileURL),
+               let backupConfig = try? decoder.decode(DeckConfig.self, from: backupData) {
+                do {
+                    try backupConfig.validate()
                     print("[VXDeck] Successfully restored config from backup file.")
                     saveConfigSync(backupConfig, revision: 1)
                     return backupConfig
+                } catch {
+                    print("[VXDeck] Backup file also corrupted/unsupported: \(error)")
                 }
             }
-
-            let seed = DeckConfig.defaultSeed()
-            saveConfigSync(seed, revision: 1)
-            return seed
         }
+
+        // Fallback to default seed if both primary and backup failed
+        print("[VXDeck] Both primary and backup config unavailable or invalid. Falling back to default seed.")
+        let seed = DeckConfig.defaultSeed()
+        saveConfigSync(seed, revision: 1)
+        return seed
     }
 
     private func handleCorruptConfigFile() {

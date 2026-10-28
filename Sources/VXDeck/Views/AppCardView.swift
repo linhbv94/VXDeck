@@ -275,15 +275,16 @@ public struct AppCardDropDelegate: DropDelegate {
     }
 
     public func performDrop(info: DropInfo) -> Bool {
-        guard store.isEditMode else { return false }
+        guard store.isEditMode else {
+            store.cancelDrag()
+            return false
+        }
+        let session = store.currentDragSessionId
         let targetEdge = store.dropTarget?.edge ?? .trailing
-        store.dropTarget = nil
-        store.isDraggingApp = false
-
         let fallbackSourceColId = store.draggingCollectionId
         let fallbackDraggedItemId = store.draggingItemId
-        store.draggingItemId = nil
-        store.draggingCollectionId = nil
+
+        store.cancelDrag()
 
         guard let provider = info.itemProviders(for: [UTType.text]).first else {
             if let draggedId = fallbackDraggedItemId, let sourceId = fallbackSourceColId {
@@ -300,10 +301,9 @@ public struct AppCardDropDelegate: DropDelegate {
             let resolvedItemId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![1]) : nil) ?? fallbackDraggedItemId
 
             DispatchQueue.main.async {
-                self.store.isDraggingApp = false
-                self.store.draggingItemId = nil
-                self.store.draggingCollectionId = nil
-                self.store.dropTarget = nil
+                guard self.store.isEditMode, self.store.currentDragSessionId == session || self.store.currentDragSessionId == nil else {
+                    return
+                }
                 if let sId = resolvedSourceId, let iId = resolvedItemId {
                     self.commitDrop(draggedItemId: iId, sourceColId: sId, edge: targetEdge)
                 }
@@ -313,10 +313,7 @@ public struct AppCardDropDelegate: DropDelegate {
     }
 
     private func commitDrop(draggedItemId: UUID, sourceColId: UUID, edge: DropTargetState.Edge) {
-        store.dropTarget = nil
-        store.isDraggingApp = false
-        store.draggingItemId = nil
-        store.draggingCollectionId = nil
+        store.cancelDrag()
 
         guard let sourceCol = store.collections.first(where: { $0.id == sourceColId }),
               let targetCol = store.collections.first(where: { $0.id == collectionId }),

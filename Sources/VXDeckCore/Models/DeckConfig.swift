@@ -7,6 +7,27 @@ public struct DeckConfig: Codable, Equatable, Sendable {
     public var settings: DeckSettings
     public var collections: [CollectionModel]
 
+    public static let supportedSchemaVersion = 1
+
+    public func validate() throws {
+        guard schemaVersion == Self.supportedSchemaVersion else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: [CodingKeys.schemaVersion],
+                    debugDescription: "Unsupported schema_version: \(schemaVersion), expected \(Self.supportedSchemaVersion)"
+                )
+            )
+        }
+        guard settings.windowWidth >= 400 && settings.windowWidth <= 2500 else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: [CodingKeys.settings],
+                    debugDescription: "Invalid windowWidth in settings: \(settings.windowWidth)"
+                )
+            )
+        }
+    }
+
     public init(
         version: String = "1.0.0",
         schemaVersion: Int = 1,

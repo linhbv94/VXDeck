@@ -237,9 +237,17 @@ public final class DeckPanel: NSPanel, NSWindowDelegate {
         }
 
         Task { @MainActor in
-            await DeckStore.shared.flush()
+            _ = await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    await DeckStore.shared.flush()
+                }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                }
+                await group.next()
+                group.cancelAll()
+            }
             NSApp.terminate(nil)
-            try? await Task.sleep(nanoseconds: 150_000_000)
             exit(0)
         }
     }

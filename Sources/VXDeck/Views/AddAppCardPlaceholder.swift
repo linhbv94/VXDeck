@@ -83,7 +83,7 @@ public struct AddAppCardPlaceholder: View {
         openPanel.begin { response in
             store.isModalOpen = false
             NSApp.activate(ignoringOtherApps: true)
-            (NSApp.keyWindow ?? NSApp.windows.first(where: { $0 is DeckPanel }))?.makeKeyAndOrderFront(nil)
+            (NSApp.windows.first(where: { $0 is DeckPanel }) as? DeckPanel)?.makeKeyAndOrderFront(nil)
 
             guard response == .OK else { return }
 
@@ -128,35 +128,14 @@ public struct PlaceholderDropDelegate: DropDelegate {
             store.cancelDrag()
             return false
         }
-        let session = store.currentDragSessionId
-        let fallbackSourceColId = store.draggingCollectionId
-        let fallbackDraggedItemId = store.draggingItemId
-
+        guard let draggedId = store.draggingItemId,
+              let sourceId = store.draggingCollectionId else {
+            store.cancelDrag()
+            return false
+        }
         store.cancelDrag()
 
-        guard let provider = info.itemProviders(for: [UTType.text]).first else {
-            if let draggedId = fallbackDraggedItemId, let sourceId = fallbackSourceColId {
-                self.commitDrop(draggedItemId: draggedId, sourceColId: sourceId)
-            }
-            return true
-        }
-
-        provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { (itemData, error) in
-            let str = (itemData as? Data).flatMap { String(data: $0, encoding: .utf8) } ?? (itemData as? String)
-            let parts = str?.components(separatedBy: ":")
-
-            let resolvedSourceId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![0]) : nil) ?? fallbackSourceColId
-            let resolvedItemId = (parts != nil && parts!.count == 2 ? UUID(uuidString: parts![1]) : nil) ?? fallbackDraggedItemId
-
-            DispatchQueue.main.async {
-                guard self.store.isEditMode, self.store.currentDragSessionId == session || self.store.currentDragSessionId == nil else {
-                    return
-                }
-                if let sId = resolvedSourceId, let iId = resolvedItemId {
-                    self.commitDrop(draggedItemId: iId, sourceColId: sId)
-                }
-            }
-        }
+        commitDrop(draggedItemId: draggedId, sourceColId: sourceId)
         return true
     }
 

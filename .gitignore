@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon\r\r
+
+# Swift Package Manager & Xcode
+.build/
+Packages/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+.swiftpm/
+
+# Artifacts & Bundles
+*.app
+*.dSYM
+*.dmg
+*.zip
+*.tar.gz
+
+# Temp & Logs
+*.tmp
+*.bak
+*.log
+.deck_config.json*

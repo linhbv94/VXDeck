@@ -20,6 +20,13 @@ public final class DeckStore: ObservableObject {
     @Published public var draggingCollectionId: UUID? = nil
     @Published public var currentDragSessionId: UUID? = nil
 
+    // Update availability
+    @Published public var hasUpdateAvailable: Bool = false
+    @Published public var latestVersionTag: String? = nil
+    @Published public var latestDmgURL: URL? = nil
+    @Published public var latestReleaseURL: URL? = nil
+    @Published public var latestReleaseNotes: String? = nil
+
     public private(set) var currentRevision: Int = 1
     private let configManager: ConfigManager
     private let appLauncher: AppLauncher
@@ -377,6 +384,54 @@ public final class DeckStore: ObservableObject {
     private func recalculateCollectionOrders() {
         for i in 0..<config.collections.count {
             config.collections[i].displayOrder = i
+        }
+    }
+
+    // MARK: - SemVer Comparison & Background Update Check
+    nonisolated public static func isNewerVersion(_ remote: String, than current: String) -> Bool {
+        let cleanRemote = remote.replacingOccurrences(of: "v", with: "").trimmingCharacters(in: .whitespaces)
+        let cleanCurrent = current.replacingOccurrences(of: "v", with: "").trimmingCharacters(in: .whitespaces)
+        let remoteParts = cleanRemote.split(separator: ".").compactMap { Int($0) }
+        let currentParts = cleanCurrent.split(separator: ".").compactMap { Int($0) }
+        let maxCount = max(remoteParts.count, currentParts.count)
+        for i in 0..<maxCount {
+            let r = i < remoteParts.count ? remoteParts[i] : 0
+            let c = i < currentParts.count ? currentParts[i] : 0
+            if r > c { return true }
+            if r < c { return false }
+        }
+        return false
+    }
+
+    public func checkUpdateInBackground() {
+        Task {
+            // Đợi 2.5 giây sau khi mở app để khởi động hoàn toàn mượt mà
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+
+            if let latestURL = URL(string: "https://github.com/linhbv94/VXDeck/releases/latest/download/latest.json") {
+                var req = URLRequest(url: latestURL)
+                req.timeoutInterval = 6
+                if let (data, response) = try? await URLSession.shared.data(for: req),
+                   let http = response as? HTTPURLResponse, http.statusCode == 200,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let remoteVer = (json["version"] as? String) ?? (json["tag_name"] as? String)?.replacingOccurrences(of: "v", with: "") {
+                    if Self.isNewerVersion(remoteVer, than: currentVersion) {
+                        self.hasUpdateAvailable = true
+                        self.latestVersionTag = remoteVer
+                        if let html = json["html_url"] as? String, let u = URL(string: html) {
+                            self.latestReleaseURL = u
+                        }
+                        if let dmg = json["download_url"] as? String, let u = URL(string: dmg) {
+                            self.latestDmgURL = u
+                        }
+                        if let notes = json["notes"] as? String {
+                            self.latestReleaseNotes = notes
+                        }
+                        return
+                    }
+                }
+            }
         }
     }
 }

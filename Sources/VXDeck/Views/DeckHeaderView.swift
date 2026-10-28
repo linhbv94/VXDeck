@@ -76,17 +76,26 @@ public struct DeckHeaderView: View {
                     store.isModalOpen = true
                     store.showSettingsModal = true
                 }) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 11, weight: .semibold))
-                        .padding(6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(Color.white.opacity(0.08))
-                        )
-                        .foregroundColor(Color(red: 0.85, green: 0.9, blue: 0.95))
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 11, weight: .semibold))
+                            .padding(6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(Color.white.opacity(0.08))
+                            )
+                            .foregroundColor(Color(red: 0.85, green: 0.9, blue: 0.95))
+
+                        if store.hasUpdateAvailable {
+                            Circle()
+                                .fill(Color.cyan)
+                                .frame(width: 7, height: 7)
+                                .offset(x: 2, y: -2)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
-                .help("Cài đặt & Giới thiệu [⌘,]")
+                .help(store.hasUpdateAvailable ? "Có bản cập nhật mới! Cài đặt & Giới thiệu [⌘,]" : "Cài đặt & Giới thiệu [⌘,]")
             }
         }
         .frame(height: 44)

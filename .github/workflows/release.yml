@@ -1,0 +1,39 @@
+name: Desktop release (free public runners)
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: vxdeck_release_${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.event.repository.private == false
+    runs-on: xcode-27
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+      - name: Run Test Suites
+        run: swift run VXDeckCoreTests
+      - name: Package Release Bundle & DMG
+        run: ./scripts/package_release.sh
+      - name: Create Draft Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          gh release create "${TAG}" \
+            --draft \
+            --title "VXDeck ${TAG}" \
+            --notes-file docs/release_notes/1.0.0.md \
+            build/vxdeck_1.0.0_macos_silicon.dmg \
+            build/latest.json

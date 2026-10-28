@@ -11,6 +11,8 @@ public struct DeckSettingsView: View {
     @LocalState private var updateStatusMessage = "Chưa kiểm tra"
     @LocalState private var hasNewUpdate = false
     @LocalState private var latestReleaseURL: URL? = nil
+    @LocalState private var latestDmgURL: URL? = nil
+    @LocalState private var releaseNotes: String? = nil
 
     private var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -70,7 +72,7 @@ public struct DeckSettingsView: View {
                 // Left Sidebar (170pt)
                 VStack(alignment: .leading, spacing: 4) {
                     sidebarButton(id: "general", title: "Cài đặt chung", icon: "gearshape")
-                    sidebarButton(id: "updates", title: "Cập nhật", icon: "arrow.triangle.2.circlepath")
+                    sidebarButton(id: "updates", title: "Cập nhật", icon: "arrow.triangle.2.circlepath", showDot: store.hasUpdateAvailable)
 
                     Divider()
                         .background(Color.white.opacity(0.08))
@@ -145,7 +147,7 @@ public struct DeckSettingsView: View {
         )
     }
 
-    private func sidebarButton(id: String, title: String, icon: String, isAmber: Bool = false) -> some View {
+    private func sidebarButton(id: String, title: String, icon: String, isAmber: Bool = false, showDot: Bool = false) -> some View {
         let isSelected = selectedTab == id
         return Button(action: { selectedTab = id }) {
             HStack(spacing: 8) {
@@ -159,6 +161,12 @@ public struct DeckSettingsView: View {
                     .foregroundColor(isSelected ? .white : Color(red: 0.75, green: 0.8, blue: 0.85))
 
                 Spacer()
+
+                if showDot {
+                    Circle()
+                        .fill(Color.cyan)
+                        .frame(width: 6, height: 6)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
@@ -289,19 +297,67 @@ public struct DeckSettingsView: View {
                     .buttonStyle(.plain)
                     .disabled(isCheckingUpdate)
 
-                    if let url = latestReleaseURL, hasNewUpdate {
-                        Button("Tải bản mới từ GitHub") {
-                            NSWorkspace.shared.open(url)
+                    if hasNewUpdate {
+                        if let dmg = latestDmgURL {
+                            Button(action: {
+                                NSWorkspace.shared.open(dmg)
+                            }) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                    Text("Tải bộ cài .dmg")
+                                }
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.cyan))
+                                .foregroundColor(.black)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                        .font(.system(size: 12, weight: .medium))
+
+                        if let url = latestReleaseURL {
+                            Button(action: {
+                                NSWorkspace.shared.open(url)
+                            }) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "globe")
+                                    Text("Xem trên GitHub")
+                                }
+                                .font(.system(size: 12, weight: .medium))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1)))
+                                .foregroundColor(.white)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
 
                 Text(updateStatusMessage)
                     .font(.system(size: 11))
-                    .foregroundColor(hasNewUpdate ? .green : Color(red: 0.6, green: 0.65, blue: 0.72))
+                    .foregroundColor(hasNewUpdate ? .cyan : Color(red: 0.6, green: 0.65, blue: 0.72))
+
+                if let notes = releaseNotes, hasNewUpdate {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Ghi chú phát hành:")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Color(red: 0.75, green: 0.8, blue: 0.85))
+
+                        ScrollView(.vertical) {
+                            Text(notes)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(Color(red: 0.8, green: 0.85, blue: 0.9))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                        }
+                        .frame(maxHeight: 110)
+                        .background(Color.black.opacity(0.35))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                    }
+                    .padding(.top, 4)
+                }
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -312,48 +368,139 @@ public struct DeckSettingsView: View {
 
     private func checkForUpdates() {
         isCheckingUpdate = true
-        updateStatusMessage = "Đang kết nối GitHub Releases..."
+        updateStatusMessage = "Đang kết nối kiểm tra bản phát hành..."
+        releaseNotes = nil
 
-        guard let url = URL(string: "https://api.github.com/repos/linhbv94/VXDeck/releases/latest") else {
-            isCheckingUpdate = false
-            updateStatusMessage = "URL kho lưu trữ không hợp lệ."
-            return
-        }
+        Task {
+            // Kênh 1: Kiểm tra qua file latest.json (tránh triệt để rate limit của GitHub API)
+            let latestJsonURL = URL(string: "https://github.com/linhbv94/VXDeck/releases/latest/download/latest.json")!
+            var req = URLRequest(url: latestJsonURL)
+            req.timeoutInterval = 7
 
-        var request = URLRequest(url: url)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("VXDeck-App", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 8
+            if let (data, response) = try? await URLSession.shared.data(for: req),
+               let http = response as? HTTPURLResponse, http.statusCode == 200,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let remoteVer = (json["version"] as? String) ?? (json["tag_name"] as? String)?.replacingOccurrences(of: "v", with: "") {
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                self.isCheckingUpdate = false
-                if let error = error {
-                    self.updateStatusMessage = "Không thể kiểm tra: \(error.localizedDescription)"
+                await MainActor.run {
+                    self.isCheckingUpdate = false
+                    if DeckStore.isNewerVersion(remoteVer, than: self.currentVersion) {
+                        self.hasNewUpdate = true
+                        self.store.hasUpdateAvailable = true
+                        self.updateStatusMessage = "Phát hiện bản phát hành mới: v\(remoteVer)!"
+                        if let html = json["html_url"] as? String, let u = URL(string: html) {
+                            self.latestReleaseURL = u
+                        } else {
+                            self.latestReleaseURL = URL(string: "https://github.com/linhbv94/VXDeck/releases/tag/v\(remoteVer)")
+                        }
+                        if let dmg = json["download_url"] as? String, let u = URL(string: dmg) {
+                            self.latestDmgURL = u
+                        } else {
+                            self.latestDmgURL = URL(string: "https://github.com/linhbv94/VXDeck/releases/download/v\(remoteVer)/vxdeck_\(remoteVer)_macos_silicon.dmg")
+                        }
+                        self.releaseNotes = json["notes"] as? String
+                    } else {
+                        self.hasNewUpdate = false
+                        self.store.hasUpdateAvailable = false
+                        self.updateStatusMessage = "Bạn đang sử dụng phiên bản mới nhất (v\(self.currentVersion))."
+                    }
+                }
+                return
+            }
+
+            // Kênh 2: Dự phòng kiểm tra qua GitHub Releases API
+            guard let apiURL = URL(string: "https://api.github.com/repos/linhbv94/VXDeck/releases/latest") else {
+                await MainActor.run {
+                    self.isCheckingUpdate = false
+                    self.updateStatusMessage = "URL kho lưu trữ không hợp lệ."
+                }
+                return
+            }
+
+            var apiReq = URLRequest(url: apiURL)
+            apiReq.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            apiReq.setValue("VXDeck-App", forHTTPHeaderField: "User-Agent")
+            apiReq.timeoutInterval = 8
+
+            do {
+                let (data, response) = try await URLSession.shared.data(for: apiReq)
+                guard let http = response as? HTTPURLResponse else {
+                    await MainActor.run {
+                        self.isCheckingUpdate = false
+                        self.updateStatusMessage = "Không nhận được phản hồi từ máy chủ."
+                    }
                     return
                 }
 
-                guard let data = data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                if http.statusCode == 404 {
+                    // Chưa có bản release nào
+                    await MainActor.run {
+                        self.isCheckingUpdate = false
+                        self.hasNewUpdate = false
+                        self.store.hasUpdateAvailable = false
+                        self.updateStatusMessage = "Bạn đang sử dụng phiên bản mới nhất (v\(self.currentVersion))."
+                    }
+                    return
+                }
+
+                if http.statusCode == 403 {
+                    // Bị rate limit bởi GitHub API
+                    await MainActor.run {
+                        self.isCheckingUpdate = false
+                        self.updateStatusMessage = "Chạm giới hạn GitHub API. Bấm xem trực tiếp trên GitHub."
+                        self.latestReleaseURL = URL(string: "https://github.com/linhbv94/VXDeck/releases")
+                        self.hasNewUpdate = true
+                    }
+                    return
+                }
+
+                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let tagName = json["tag_name"] as? String else {
-                    self.updateStatusMessage = "Bạn đang sử dụng phiên bản mới nhất (v\(self.currentVersion))."
-                    self.hasNewUpdate = false
+                    await MainActor.run {
+                        self.isCheckingUpdate = false
+                        self.hasNewUpdate = false
+                        self.store.hasUpdateAvailable = false
+                        self.updateStatusMessage = "Bạn đang sử dụng phiên bản mới nhất (v\(self.currentVersion))."
+                    }
                     return
                 }
 
                 let cleanTag = tagName.replacingOccurrences(of: "v", with: "").trimmingCharacters(in: .whitespaces)
-                if cleanTag != self.currentVersion && cleanTag > self.currentVersion {
-                    self.hasNewUpdate = true
-                    self.updateStatusMessage = "Phát hiện bản phát hành mới: \(tagName)!"
-                    if let htmlURLStr = json["html_url"] as? String, let htmlURL = URL(string: htmlURLStr) {
-                        self.latestReleaseURL = htmlURL
+                await MainActor.run {
+                    self.isCheckingUpdate = false
+                    if DeckStore.isNewerVersion(cleanTag, than: self.currentVersion) {
+                        self.hasNewUpdate = true
+                        self.store.hasUpdateAvailable = true
+                        self.updateStatusMessage = "Phát hiện bản phát hành mới: \(tagName)!"
+                        if let html = json["html_url"] as? String, let u = URL(string: html) {
+                            self.latestReleaseURL = u
+                        }
+                        if let body = json["body"] as? String, !body.trimmingCharacters(in: .whitespaces).isEmpty {
+                            self.releaseNotes = body
+                        }
+                        if let assets = json["assets"] as? [[String: Any]] {
+                            for asset in assets {
+                                if let name = asset["name"] as? String, name.hasSuffix(".dmg"),
+                                   let downloadUrlStr = asset["browser_download_url"] as? String,
+                                   let downloadUrl = URL(string: downloadUrlStr) {
+                                    self.latestDmgURL = downloadUrl
+                                    break
+                                }
+                            }
+                        }
+                    } else {
+                        self.hasNewUpdate = false
+                        self.store.hasUpdateAvailable = false
+                        self.updateStatusMessage = "Bạn đang sử dụng phiên bản mới nhất (v\(self.currentVersion))."
                     }
-                } else {
-                    self.hasNewUpdate = false
-                    self.updateStatusMessage = "Bạn đang sử dụng phiên bản mới nhất (v\(self.currentVersion))."
+                }
+            } catch {
+                await MainActor.run {
+                    self.isCheckingUpdate = false
+                    self.updateStatusMessage = "Không thể kiểm tra cập nhật: \(error.localizedDescription)"
                 }
             }
-        }.resume()
+        }
     }
 
     // MARK: - About Tab

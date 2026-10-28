@@ -22,7 +22,20 @@ struct DeckCoreTests {
         testIconProvider()
         print("  ✓ testIconProvider: PASS")
 
-        print("==> [VXDeckCoreTests] ALL 4 TEST SUITES PASSED SUCCESSFULLY (100% PASS)!")
+        testSemVerComparison()
+        print("  ✓ testSemVerComparison: PASS")
+
+        print("==> [VXDeckCoreTests] ALL 5 TEST SUITES PASSED SUCCESSFULLY (100% PASS)!")
+    }
+
+    static func testSemVerComparison() {
+        assert(DeckStore.isNewerVersion("1.0.1", than: "1.0.0"), "1.0.1 should be newer than 1.0.0")
+        assert(DeckStore.isNewerVersion("1.0.10", than: "1.0.2"), "1.0.10 should be newer than 1.0.2")
+        assert(DeckStore.isNewerVersion("v1.2.0", than: "1.1.9"), "v1.2.0 should be newer than 1.1.9")
+        assert(DeckStore.isNewerVersion("2.0.0", than: "1.99.99"), "2.0.0 should be newer than 1.99.99")
+        assert(!DeckStore.isNewerVersion("1.0.0", than: "1.0.0"), "1.0.0 should not be newer than 1.0.0")
+        assert(!DeckStore.isNewerVersion("1.0.0", than: "1.0.1"), "1.0.0 should not be newer than 1.0.1")
+        assert(!DeckStore.isNewerVersion("1.0.2", than: "1.0.10"), "1.0.2 should not be newer than 1.0.10")
     }
 
     static func testModelSerializationRoundtrip() throws {

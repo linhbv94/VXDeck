@@ -31,6 +31,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             await DeckStore.shared.initialize()
             deckPanel.showPanel()
+            DeckStore.shared.checkUpdateInBackground()
         }
     }
 

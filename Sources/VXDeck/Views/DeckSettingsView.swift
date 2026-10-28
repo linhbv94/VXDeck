@@ -15,7 +15,7 @@ public struct DeckSettingsView: View {
     @LocalState private var releaseNotes: String? = nil
 
     private var currentVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1"
     }
 
     private var qrImage: NSImage? {

@@ -25,15 +25,24 @@ jobs:
       - name: Run Test Suites
         run: swift run VXDeckCoreTests
       - name: Package Release Bundle & DMG
-        run: ./scripts/package_release.sh
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          RAW_VER="${TAG#v}"
+          ./scripts/package_release.sh "${RAW_VER}"
       - name: Create Draft Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
+          RAW_VER="${TAG#v}"
+          NOTES_FILE="docs/release_notes/${RAW_VER}.md"
+          if [ ! -f "${NOTES_FILE}" ]; then
+            NOTES_FILE="docs/release_notes/1.0.1.md"
+          fi
           gh release create "${TAG}" \
             --draft \
             --title "VXDeck ${TAG}" \
-            --notes-file docs/release_notes/1.0.0.md \
-            build/vxdeck_1.0.0_macos_silicon.dmg \
+            --notes-file "${NOTES_FILE}" \
+            build/vxdeck_${RAW_VER}_macos_silicon.dmg \
             build/latest.json

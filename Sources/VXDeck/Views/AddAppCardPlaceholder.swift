@@ -8,6 +8,12 @@ public struct AddAppCardPlaceholder: View {
     let collectionId: UUID
 
     @LocalState private var isHovered = false
+    private let placeholderId = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+
+    private var showLeadingIndicator: Bool {
+        guard store.isEditMode, let target = store.dropTarget else { return false }
+        return target.collectionId == collectionId && target.itemId == placeholderId && target.edge == .leading
+    }
 
     public var body: some View {
         Button(action: openAppPicker) {
@@ -20,7 +26,7 @@ public struct AddAppCardPlaceholder: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(isHovered ? .cyan : Color(red: 0.6, green: 0.65, blue: 0.72))
             }
-            .frame(width: 96, height: 86)
+            .frame(maxWidth: .infinity, minHeight: 86, maxHeight: 86)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(
@@ -34,9 +40,23 @@ public struct AddAppCardPlaceholder: View {
             )
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .leading) {
+            if showLeadingIndicator {
+                DropIndicatorLine()
+                    .offset(x: -6)
+            }
+        }
         .onHover { hovering in
             isHovered = hovering
         }
+        .onDrop(
+            of: [UTType.text],
+            delegate: PlaceholderDropDelegate(
+                collectionId: collectionId,
+                placeholderId: placeholderId,
+                store: store
+            )
+        )
         .help("Thêm ứng dụng .app vào nhóm này")
     }
 
@@ -68,5 +88,75 @@ public struct AddAppCardPlaceholder: View {
                 _ = store.addApp(toCollectionId: collectionId, path: url.path)
             }
         }
+    }
+}
+
+public struct PlaceholderDropDelegate: DropDelegate {
+    let collectionId: UUID
+    let placeholderId: UUID
+    let store: DeckStore
+
+    public init(collectionId: UUID, placeholderId: UUID, store: DeckStore) {
+        self.collectionId = collectionId
+        self.placeholderId = placeholderId
+        self.store = store
+    }
+
+    public func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard store.isEditMode else { return DropProposal(operation: .forbidden) }
+        store.dropTarget = DropTargetState(collectionId: collectionId, itemId: placeholderId, edge: .leading)
+        return DropProposal(operation: .move)
+    }
+
+    public func dropExited(info: DropInfo) {
+        if store.dropTarget?.collectionId == collectionId && store.dropTarget?.itemId == placeholderId {
+            store.dropTarget = nil
+        }
+    }
+
+    public func performDrop(info: DropInfo) -> Bool {
+        store.dropTarget = nil
+        guard let provider = info.itemProviders(for: [UTType.text]).first else {
+            store.draggingItemId = nil
+            store.draggingCollectionId = nil
+            return false
+        }
+
+        provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { (itemData, error) in
+            guard let data = itemData as? Data ?? (itemData as? String)?.data(using: .utf8),
+                  let str = String(data: data, encoding: .utf8) else {
+                DispatchQueue.main.async {
+                    self.store.draggingItemId = nil
+                    self.store.draggingCollectionId = nil
+                }
+                return
+            }
+
+            let parts = str.components(separatedBy: ":")
+            guard parts.count == 2,
+                  let sourceColId = UUID(uuidString: parts[0]),
+                  let draggedItemId = UUID(uuidString: parts[1]) else {
+                DispatchQueue.main.async {
+                    self.store.draggingItemId = nil
+                    self.store.draggingCollectionId = nil
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.store.draggingItemId = nil
+                self.store.draggingCollectionId = nil
+                guard let targetCol = self.store.collections.first(where: { $0.id == self.collectionId }) else { return }
+
+                if sourceColId == self.collectionId {
+                    guard let sourceCol = self.store.collections.first(where: { $0.id == sourceColId }),
+                          let sourceIndex = sourceCol.items.firstIndex(where: { $0.id == draggedItemId }) else { return }
+                    self.store.reorderItems(inCollectionId: self.collectionId, from: sourceIndex, to: targetCol.items.count)
+                } else {
+                    self.store.moveItem(itemId: draggedItemId, fromCollectionId: sourceColId, toCollectionId: self.collectionId, targetIndex: targetCol.items.count)
+                }
+            }
+        }
+        return true
     }
 }

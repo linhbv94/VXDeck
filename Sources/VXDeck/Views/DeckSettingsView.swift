@@ -197,25 +197,22 @@ public struct DeckSettingsView: View {
 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Số cột hiển thị app")
+                        Text("Độ rộng cửa sổ (Popup Width)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.white)
-                        Text("Số lượng ứng dụng trên một hàng ngang (3 - 8 cột).")
+                        Text("Kéo viền mép trái hoặc phải của popup để tuỳ chỉnh độ rộng tự do. Số cột sẽ tự động dàn đều theo không gian hiển thị.")
                             .font(.system(size: 11))
                             .foregroundColor(Color(red: 0.58, green: 0.64, blue: 0.72))
                     }
 
                     Spacer()
 
-                    Picker("", selection: Binding(
-                        get: { store.settings.columnsCount },
-                        set: { store.updateSettings(columnsCount: $0) }
-                    )) {
-                        Text("4 cột").tag(4)
-                        Text("5 cột (Chuẩn)").tag(5)
-                        Text("6 cột").tag(6)
-                    }
-                    .frame(width: 130)
+                    Text("\(Int(store.settings.windowWidth)) pt")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(.cyan)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
                 }
 
                 Divider().background(Color.white.opacity(0.08))

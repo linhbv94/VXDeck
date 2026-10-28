@@ -2,18 +2,19 @@ import AppKit
 import SwiftUI
 import VXDeckCore
 
-public final class DeckPanel: NSPanel {
+public final class DeckPanel: NSPanel, NSWindowDelegate {
     private var eventMonitor: EventMonitor?
     private var isTerminating = false
 
     public init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
-            styleMask: [.borderless],
+            styleMask: [.borderless, .resizable],
             backing: .buffered,
             defer: false
         )
 
+        self.delegate = self
         self.isFloatingPanel = true
         self.level = .floating
         self.isOpaque = false
@@ -23,6 +24,8 @@ public final class DeckPanel: NSPanel {
         self.hidesOnDeactivate = false
         self.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         self.animationBehavior = .utilityWindow
+        self.minSize = NSSize(width: 440, height: 220)
+        self.maxSize = NSSize(width: 1400, height: 960)
 
         setupOutsideClickMonitor()
     }
@@ -110,11 +113,17 @@ public final class DeckPanel: NSPanel {
         }
     }
 
+    public func windowDidEndLiveResize(_ notification: Notification) {
+        DeckStore.shared.updateWindowWidth(Double(self.frame.width))
+        self.updateHeight(animated: true)
+    }
+
     public func updateHeight(animated: Bool = true) {
         guard !isTerminating, let screen = self.screen ?? NSScreen.main else { return }
         let visibleFrame = screen.visibleFrame
 
-        let width = self.frame.width > 100 ? self.frame.width : min(620, visibleFrame.width - 40)
+        let savedWidth = CGFloat(DeckStore.shared.settings.windowWidth)
+        let width = self.frame.width > 100 ? self.frame.width : min(max(savedWidth, 440), visibleFrame.width - 40)
         let fittingHeight = self.contentView?.fittingSize.height ?? 460
         let targetHeight = min(max(fittingHeight > 100 ? fittingHeight : 460, 250), min(760, visibleFrame.height * 0.85))
 
@@ -147,7 +156,8 @@ public final class DeckPanel: NSPanel {
         guard let screen = targetScreen else { return }
         let visibleFrame = screen.visibleFrame
 
-        let width: CGFloat = min(620, visibleFrame.width - 40)
+        let savedWidth = CGFloat(DeckStore.shared.settings.windowWidth)
+        let width: CGFloat = min(max(savedWidth, 440), visibleFrame.width - 40)
         let fittingHeight = self.contentView?.fittingSize.height ?? 460
         let currentHeight = min(max(fittingHeight > 100 ? fittingHeight : 460, 250), min(760, visibleFrame.height * 0.85))
 

@@ -5,17 +5,20 @@ public struct DeckSettings: Codable, Equatable, Sendable {
     public var columnsCount: Int
     public var iconSize: Int
     public var themeMode: String
+    public var windowWidth: Double
 
     public init(
         autoHideOnLaunch: Bool = true,
         columnsCount: Int = 5,
         iconSize: Int = 48,
-        themeMode: String = "dark"
+        themeMode: String = "dark",
+        windowWidth: Double = 620
     ) {
         self.autoHideOnLaunch = autoHideOnLaunch
         self.columnsCount = columnsCount
         self.iconSize = iconSize
         self.themeMode = themeMode
+        self.windowWidth = windowWidth
     }
 
     enum CodingKeys: String, CodingKey {
@@ -23,6 +26,7 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         case columnsCount = "columns_count"
         case iconSize = "icon_size"
         case themeMode = "theme_mode"
+        case windowWidth = "window_width"
     }
 
     public init(from decoder: Decoder) throws {
@@ -31,6 +35,7 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         self.columnsCount = try container.decodeIfPresent(Int.self, forKey: .columnsCount) ?? 5
         self.iconSize = try container.decodeIfPresent(Int.self, forKey: .iconSize) ?? 48
         self.themeMode = try container.decodeIfPresent(String.self, forKey: .themeMode) ?? "dark"
+        self.windowWidth = try container.decodeIfPresent(Double.self, forKey: .windowWidth) ?? 620
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -39,5 +44,6 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         try container.encode(columnsCount, forKey: .columnsCount)
         try container.encode(iconSize, forKey: .iconSize)
         try container.encode(themeMode, forKey: .themeMode)
+        try container.encode(windowWidth, forKey: .windowWidth)
     }
 }

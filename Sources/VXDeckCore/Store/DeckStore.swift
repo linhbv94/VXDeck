@@ -13,6 +13,11 @@ public final class DeckStore: ObservableObject {
     @Published public var windowSessionId: UUID = UUID()
     @Published public var toastMessage: String? = nil
 
+    // Drag & drop insertion indicator state
+    @Published public var dropTarget: DropTargetState? = nil
+    @Published public var draggingItemId: UUID? = nil
+    @Published public var draggingCollectionId: UUID? = nil
+
     public private(set) var currentRevision: Int = 1
     private let configManager: ConfigManager
     private let appLauncher: AppLauncher
@@ -94,6 +99,9 @@ public final class DeckStore: ObservableObject {
     public func setEditMode(_ active: Bool) {
         guard isEditMode != active else { return }
         isEditMode = active
+        dropTarget = nil
+        draggingItemId = nil
+        draggingCollectionId = nil
         if !isEditMode {
             save()
             Task {
@@ -319,7 +327,8 @@ public final class DeckStore: ObservableObject {
         autoHideOnLaunch: Bool? = nil,
         columnsCount: Int? = nil,
         iconSize: Int? = nil,
-        themeMode: String? = nil
+        themeMode: String? = nil,
+        windowWidth: Double? = nil
     ) {
         if let autoHide = autoHideOnLaunch {
             config.settings.autoHideOnLaunch = autoHide
@@ -333,7 +342,18 @@ public final class DeckStore: ObservableObject {
         if let theme = themeMode {
             config.settings.themeMode = theme
         }
+        if let width = windowWidth {
+            config.settings.windowWidth = max(440, min(1400, width))
+        }
         save()
+    }
+
+    public func updateWindowWidth(_ width: Double) {
+        let clamped = max(440, min(1400, width))
+        if abs(config.settings.windowWidth - clamped) > 1 {
+            config.settings.windowWidth = clamped
+            save()
+        }
     }
 
     public func resetSettingsToDefaults() {

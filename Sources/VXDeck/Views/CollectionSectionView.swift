@@ -12,8 +12,7 @@ public struct CollectionSectionView: View {
     @LocalState private var showDeleteConfirm = false
 
     private var columns: [GridItem] {
-        let count = max(3, min(8, store.settings.columnsCount))
-        return Array(repeating: GridItem(.fixed(100), spacing: 14), count: count)
+        [GridItem(.adaptive(minimum: 88, maximum: 104), spacing: 12)]
     }
 
     public var body: some View {
@@ -96,8 +95,8 @@ public struct CollectionSectionView: View {
             }
             .padding(.horizontal, 4)
 
-            // Grid of App Items
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+            // Dynamic Adaptive Grid of App Items
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
                 ForEach(collection.items.sorted(by: { $0.displayOrder < $1.displayOrder })) { item in
                     if store.isEditMode {
                         AppCardView(
@@ -106,11 +105,18 @@ public struct CollectionSectionView: View {
                             onLaunchRequested: onLaunchRequested
                         )
                         .onDrag {
-                            NSItemProvider(object: "\(collection.id.uuidString):\(item.id.uuidString)" as NSString)
+                            store.draggingItemId = item.id
+                            store.draggingCollectionId = collection.id
+                            return NSItemProvider(object: "\(collection.id.uuidString):\(item.id.uuidString)" as NSString)
                         }
-                        .onDrop(of: [UTType.text], isTargeted: nil) { providers in
-                            handleDrop(providers: providers, targetItemId: item.id)
-                        }
+                        .onDrop(
+                            of: [UTType.text],
+                            delegate: AppCardDropDelegate(
+                                item: item,
+                                collectionId: collection.id,
+                                store: store
+                            )
+                        )
                     } else {
                         AppCardView(
                             item: item,
@@ -122,9 +128,6 @@ public struct CollectionSectionView: View {
 
                 if store.isEditMode {
                     AddAppCardPlaceholder(collectionId: collection.id)
-                        .onDrop(of: [UTType.text], isTargeted: nil) { providers in
-                            handleDrop(providers: providers, targetItemId: nil)
-                        }
                 }
             }
         }
@@ -134,57 +137,5 @@ public struct CollectionSectionView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color.white.opacity(0.02))
         )
-    }
-
-    private func handleDrop(providers: [NSItemProvider], targetItemId: UUID?) -> Bool {
-        guard store.isEditMode, let provider = providers.first else { return false }
-
-        provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { (itemData, error) in
-            guard let data = itemData as? Data ?? (itemData as? String)?.data(using: .utf8),
-                  let str = String(data: data, encoding: .utf8) else {
-                return
-            }
-
-            let parts = str.components(separatedBy: ":")
-            guard parts.count == 2,
-                  let sourceColId = UUID(uuidString: parts[0]),
-                  let draggedItemId = UUID(uuidString: parts[1]) else {
-                return
-            }
-
-            DispatchQueue.main.async {
-                guard self.store.isEditMode else { return }
-
-                // Resolve strictly against current store collections
-                guard let sourceCol = self.store.collections.first(where: { $0.id == sourceColId }),
-                      let currentTargetCol = self.store.collections.first(where: { $0.id == self.collection.id }),
-                      let sourceIndex = sourceCol.items.firstIndex(where: { $0.id == draggedItemId }) else {
-                    return
-                }
-
-                if sourceColId == self.collection.id {
-                    // Reorder within same collection
-                    let targetIndex: Int
-                    if let targetId = targetItemId, let idx = currentTargetCol.items.firstIndex(where: { $0.id == targetId }) {
-                        targetIndex = idx
-                    } else {
-                        targetIndex = currentTargetCol.items.count
-                    }
-                    self.store.reorderItems(inCollectionId: self.collection.id, from: sourceIndex, to: targetIndex)
-                } else {
-                    // Move across collections
-                    let targetIndex: Int? = targetItemId.flatMap { id in
-                        currentTargetCol.items.firstIndex(where: { $0.id == id })
-                    }
-                    self.store.moveItem(
-                        itemId: draggedItemId,
-                        fromCollectionId: sourceColId,
-                        toCollectionId: self.collection.id,
-                        targetIndex: targetIndex
-                    )
-                }
-            }
-        }
-        return true
     }
 }

@@ -18,6 +18,15 @@ public struct DeckFooterView: View {
             Text(store.isEditMode ? "Kéo để sắp xếp • Bấm (x) để xóa" : "Nhấp một chạm để mở app")
                 .font(.system(size: 10, weight: .regular))
                 .foregroundColor(Color(red: 0.58, green: 0.64, blue: 0.72))
+
+            // Resize Hint
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.left.and.right")
+                    .font(.system(size: 8, weight: .semibold))
+                Text("Kéo viền đổi cỡ")
+                    .font(.system(size: 9))
+            }
+            .foregroundColor(Color(red: 0.42, green: 0.48, blue: 0.55))
         }
         .frame(height: 28)
         .padding(.horizontal, 16)

@@ -43,7 +43,8 @@ struct DeckCoreTests {
             autoHideOnLaunch: true,
             columnsCount: 5,
             iconSize: 48,
-            themeMode: "dark"
+            themeMode: "dark",
+            windowWidth: 700
         )
 
         let config = DeckConfig(
@@ -68,6 +69,7 @@ struct DeckCoreTests {
         assert(decoded.version == config.version, "Version mismatch")
         assert(decoded.schemaVersion == config.schemaVersion, "Schema version mismatch")
         assert(decoded.settings.columnsCount == 5, "Columns count mismatch")
+        assert(decoded.settings.windowWidth == 700, "Window width mismatch")
         assert(decoded.collections.count == 1, "Collections count mismatch")
         assert(decoded.collections[0].title == "Testing Group", "Title mismatch")
         assert(decoded.collections[0].items.count == 1, "Items count mismatch")
@@ -138,6 +140,10 @@ struct DeckCoreTests {
         // Delete collection
         store.deleteCollection(collectionId: testCol.id)
         assert(store.collections.first(where: { $0.id == testCol.id }) == nil, "Collection should be removed")
+
+        // Window width update
+        store.updateWindowWidth(780)
+        assert(store.settings.windowWidth == 780, "Window width should be updated to 780")
 
         // Clean up sandbox
         try? FileManager.default.removeItem(at: tempDir)

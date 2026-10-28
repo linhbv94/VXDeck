@@ -47,7 +47,7 @@ public struct DeckRootView: View {
                     .padding(.top, 52)
             }
         }
-        .frame(width: 620)
+        .frame(minWidth: 440, maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(red: 0.059, green: 0.067, blue: 0.09).opacity(0.98))
@@ -57,6 +57,12 @@ public struct DeckRootView: View {
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(alignment: .leading) {
+            WindowResizeHandle(side: .left, onEnd: onContentSizeChange)
+        }
+        .overlay(alignment: .trailing) {
+            WindowResizeHandle(side: .right, onEnd: onContentSizeChange)
+        }
         .sheet(isPresented: $store.showAddCollectionDialog) {
             VStack(spacing: 16) {
                 Text("Tạo Bộ Sưu Tập Mới")
@@ -170,5 +176,77 @@ public struct DeckRootView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct WindowResizeHandle: View {
+    enum Side {
+        case left
+        case right
+    }
+
+    let side: Side
+    let onEnd: () -> Void
+
+    @LocalState private var isHovering = false
+    @LocalState private var startFrame: NSRect? = nil
+
+    private var deckPanel: DeckPanel? {
+        (NSApp.keyWindow as? DeckPanel) ?? (NSApp.windows.first(where: { $0 is DeckPanel }) as? DeckPanel)
+    }
+
+    var body: some View {
+        Rectangle()
+            .fill(isHovering ? Color.cyan.opacity(0.18) : Color.clear)
+            .frame(width: 8)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                isHovering = hovering
+                if hovering {
+                    NSCursor.resizeLeftRight.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        guard let panel = deckPanel, let screen = panel.screen ?? NSScreen.main else { return }
+                        let visibleFrame = screen.visibleFrame
+
+                        if startFrame == nil {
+                            startFrame = panel.frame
+                        }
+                        guard let base = startFrame else { return }
+
+                        let minWidth: CGFloat = 440
+                        let maxWidth: CGFloat = min(1400, visibleFrame.width - 40)
+
+                        switch side {
+                        case .right:
+                            let targetWidth = base.width + value.translation.width
+                            let newWidth = max(minWidth, min(maxWidth, targetWidth))
+                            let newFrame = NSRect(x: base.origin.x, y: base.origin.y, width: newWidth, height: base.height)
+                            panel.setFrame(newFrame, display: true)
+
+                        case .left:
+                            let targetWidth = base.width - value.translation.width
+                            let newWidth = max(minWidth, min(maxWidth, targetWidth))
+                            let actualDiff = base.width - newWidth
+                            let newX = base.origin.x + actualDiff
+                            let newFrame = NSRect(x: newX, y: base.origin.y, width: newWidth, height: base.height)
+                            panel.setFrame(newFrame, display: true)
+                        }
+                    }
+                    .onEnded { _ in
+                        guard let panel = deckPanel else {
+                            startFrame = nil
+                            return
+                        }
+                        startFrame = nil
+                        DeckStore.shared.updateWindowWidth(Double(panel.frame.width))
+                        onEnd()
+                    }
+            )
     }
 }

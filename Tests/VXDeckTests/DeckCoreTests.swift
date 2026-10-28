@@ -31,7 +31,10 @@ struct DeckCoreTests {
         await testCollectionReordering()
         print("  ✓ testCollectionReordering: PASS")
 
-        print("==> [VXDeckCoreTests] ALL 7 TEST SUITES PASSED SUCCESSFULLY (100% PASS)!")
+        await testAppUpdaterErrors()
+        print("  ✓ testAppUpdaterErrors: PASS")
+
+        print("==> [VXDeckCoreTests] ALL 8 TEST SUITES PASSED SUCCESSFULLY (100% PASS)!")
     }
 
     static func testSemVerComparison() {
@@ -339,5 +342,27 @@ struct DeckCoreTests {
 
         // Clean up sandbox
         try? FileManager.default.removeItem(at: tempDir)
+    }
+
+    static func testAppUpdaterErrors() async {
+        let updater = AppUpdater.shared
+        let invalidURL = URL(string: "https://127.0.0.1:9/non_existent.dmg")!
+        let target = URL(fileURLWithPath: "/tmp/non_existent.app")
+        do {
+            try await updater.applyUpdate(dmgURL: invalidURL, targetAppURL: target)
+            fatalError("Should fail on invalid URL")
+        } catch let err as AppUpdaterError {
+            switch err {
+            case .downloadFailed:
+                break
+            default:
+                fatalError("Unexpected error type: \(err)")
+            }
+        } catch {
+            // Network connection rejected
+        }
+
+        let errDesc = AppUpdaterError.appNotFoundInImage.localizedDescription
+        assert(!errDesc.isEmpty, "Error description should not be empty")
     }
 }

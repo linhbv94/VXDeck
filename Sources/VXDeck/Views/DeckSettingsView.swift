@@ -8,6 +8,7 @@ public struct DeckSettingsView: View {
 
     @LocalState private var selectedTab = "general"
     @LocalState private var isCheckingUpdate = false
+    @LocalState private var isApplyingUpdate = false
     @LocalState private var updateStatusMessage = "Chưa kiểm tra"
     @LocalState private var hasNewUpdate = false
     @LocalState private var latestReleaseURL: URL? = nil
@@ -298,21 +299,42 @@ public struct DeckSettingsView: View {
                     .disabled(isCheckingUpdate)
 
                     if hasNewUpdate {
+                        Button(action: applyUpdateNow) {
+                            HStack(spacing: 6) {
+                                if isApplyingUpdate {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                    Text("Đang cập nhật...")
+                                } else {
+                                    Image(systemName: "sparkles")
+                                    Text("Cập nhật & Khởi động lại")
+                                }
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.cyan))
+                            .foregroundColor(.black)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isApplyingUpdate)
+
                         if let dmg = latestDmgURL {
                             Button(action: {
                                 NSWorkspace.shared.open(dmg)
                             }) {
                                 HStack(spacing: 5) {
-                                    Image(systemName: "arrow.down.circle.fill")
-                                    Text("Tải bộ cài .dmg")
+                                    Image(systemName: "arrow.down.circle")
+                                    Text("Tải .dmg thủ công")
                                 }
-                                .font(.system(size: 12, weight: .semibold))
-                                .padding(.horizontal, 12)
+                                .font(.system(size: 11, weight: .medium))
+                                .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.cyan))
-                                .foregroundColor(.black)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1)))
+                                .foregroundColor(.white)
                             }
                             .buttonStyle(.plain)
+                            .disabled(isApplyingUpdate)
                         }
 
                         if let url = latestReleaseURL {
@@ -330,6 +352,7 @@ public struct DeckSettingsView: View {
                                 .foregroundColor(.white)
                             }
                             .buttonStyle(.plain)
+                            .disabled(isApplyingUpdate)
                         }
                     }
                 }
@@ -498,6 +521,37 @@ public struct DeckSettingsView: View {
                 await MainActor.run {
                     self.isCheckingUpdate = false
                     self.updateStatusMessage = "Không thể kiểm tra cập nhật: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func applyUpdateNow() {
+        guard let dmgURL = latestDmgURL else { return }
+        isApplyingUpdate = true
+        updateStatusMessage = "Đang tải gói cập nhật từ GitHub..."
+
+        Task {
+            do {
+                let currentBundle = Bundle.main.bundleURL
+                let targetURL = currentBundle.path.hasSuffix(".app") ? currentBundle : URL(fileURLWithPath: "/Applications/VXDeck.app")
+
+                await MainActor.run {
+                    self.updateStatusMessage = "Đang cài đặt và khởi động lại..."
+                }
+
+                try await AppUpdater.shared.applyUpdate(dmgURL: dmgURL, targetAppURL: targetURL)
+
+                // Flush store state before exiting
+                await DeckStore.shared.flush()
+                await MainActor.run {
+                    NSApp.terminate(nil)
+                    exit(0)
+                }
+            } catch {
+                await MainActor.run {
+                    self.isApplyingUpdate = false
+                    self.updateStatusMessage = "Lỗi cập nhật tự động: \(error.localizedDescription)"
                 }
             }
         }

@@ -38,7 +38,7 @@ jobs:
           RAW_VER="${TAG#v}"
           NOTES_FILE="docs/release_notes/${RAW_VER}.md"
           if [ ! -f "${NOTES_FILE}" ]; then
-            NOTES_FILE="docs/release_notes/1.0.2.md"
+            NOTES_FILE="docs/release_notes/1.0.3.md"
           fi
           gh release create "${TAG}" \
             --draft \

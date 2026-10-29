@@ -5,6 +5,10 @@ import VXDeckCore
 @main
 struct DeckCoreTests {
     static func main() async throws {
+        if CommandLine.arguments.contains("--qa-update-flush") {
+            try await testUpdateFlushFailureFixture()
+            return
+        }
         print("==> [VXDeckCoreTests] Starting suite execution...")
 
         try testModelSerializationRoundtrip()
@@ -34,7 +38,8 @@ struct DeckCoreTests {
         await testAppUpdaterErrors()
         print("  ✓ testAppUpdaterErrors: PASS")
 
-        print("==> [VXDeckCoreTests] ALL 8 TEST SUITES PASSED SUCCESSFULLY (100% PASS)!")
+        try UpdateSecurityTests.run()
+        print("==> [VXDeckCoreTests] ALL TEST SUITES PASSED")
     }
 
     static func testSemVerComparison() {
@@ -65,6 +70,7 @@ struct DeckCoreTests {
         )
 
         let settings = DeckSettings(
+            language: "en",
             autoHideOnLaunch: true,
             columnsCount: 5,
             iconSize: 48,
@@ -93,6 +99,9 @@ struct DeckCoreTests {
 
         assert(decoded.version == config.version, "Version mismatch")
         assert(decoded.schemaVersion == config.schemaVersion, "Schema version mismatch")
+        assert(decoded.settings.language == "en", "Language readback mismatch")
+        let legacy = try decoder.decode(DeckSettings.self, from: Data("{}".utf8))
+        assert(legacy.language == "vi", "Legacy config must remain readable")
         assert(decoded.settings.columnsCount == 5, "Columns count mismatch")
         assert(decoded.settings.windowWidth == 700, "Window width mismatch")
         assert(decoded.collections.count == 1, "Collections count mismatch")
@@ -353,7 +362,7 @@ struct DeckCoreTests {
             fatalError("Should fail on invalid URL")
         } catch let err as AppUpdaterError {
             switch err {
-            case .downloadFailed:
+            case .targetNotWritable:
                 break
             default:
                 fatalError("Unexpected error type: \(err)")
@@ -365,4 +374,30 @@ struct DeckCoreTests {
         let errDesc = AppUpdaterError.appNotFoundInImage.localizedDescription
         assert(!errDesc.isEmpty, "Error description should not be empty")
     }
+    @MainActor
+    static func testUpdateFlushFailureFixture() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vxdeck_update_flush_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let blocked = root.appendingPathComponent("config_directory")
+        try Data("fixture blocker".utf8).write(to: blocked)
+        let manager = ConfigManager(customDirectoryURL: blocked)
+        let store = DeckStore(configManager: manager)
+        store.config.settings.language = "en"
+        store.save()
+        await store.flush()
+        assert(!FileManager.default.fileExists(atPath: blocked.appendingPathComponent("deck_config.json").path))
+        print("REPRO: legacy flush returned normally although config save failed; update prepare would proceed")
+        var rejected = false
+        do { try await store.flushForUpdate() } catch { rejected = true }
+        assert(rejected, "Update must stop when configuration cannot be persisted")
+        try FileManager.default.removeItem(at: blocked)
+        try FileManager.default.createDirectory(at: blocked, withIntermediateDirectories: true)
+        try await store.flushForUpdate()
+        let disk = await ConfigManager(customDirectoryURL: blocked).loadConfig()
+        assert(disk.settings.language == "en", "Retry must persist the live preference")
+        assert(store.config.settings.language == "en", "Failed flush must not clear draft")
+        print("PASS: update flush rejects save failure, preserves draft and retries with readback")
+    }
+
 }

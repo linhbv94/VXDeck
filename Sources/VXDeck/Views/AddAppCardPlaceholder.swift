@@ -22,7 +22,7 @@ public struct AddAppCardPlaceholder: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(isHovered ? .cyan : Color(red: 0.6, green: 0.65, blue: 0.72))
 
-                Text("Thêm App")
+                Text(store.localized("Thêm App"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(isHovered ? .cyan : Color(red: 0.6, green: 0.65, blue: 0.72))
             }
@@ -57,16 +57,20 @@ public struct AddAppCardPlaceholder: View {
                 store: store
             )
         )
-        .help("Thêm ứng dụng .app vào nhóm này")
+        .help(store.localized("Thêm ứng dụng .app vào nhóm này"))
     }
 
     private func openAppPicker() {
+        guard !store.isModalOpen,
+              let parent = (NSApp.delegate as? AppDelegate)?.panel,
+              parent.isVisible,
+              parent.attachedSheet == nil else { return }
         store.isModalOpen = true
 
         let openPanel = NSOpenPanel()
-        openPanel.title = "Chọn ứng dụng để thêm vào VXDeck"
-        openPanel.message = "Chọn một hoặc nhiều ứng dụng (.app) để thêm vào bộ sưu tập"
-        openPanel.prompt = "Thêm"
+        openPanel.title = store.localized("Chọn ứng dụng để thêm vào VXDeck")
+        openPanel.message = store.localized("Chọn một hoặc nhiều ứng dụng (.app) để thêm vào bộ sưu tập")
+        openPanel.prompt = store.localized("Thêm")
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
         openPanel.treatsFilePackagesAsDirectories = false
@@ -80,10 +84,8 @@ public struct AddAppCardPlaceholder: View {
         ]
         openPanel.delegate = AppPickerDelegate.shared
 
-        openPanel.begin { response in
+        AppPickerDelegate.present(openPanel, on: parent) { response in
             store.isModalOpen = false
-            NSApp.activate(ignoringOtherApps: true)
-            (NSApp.windows.first(where: { $0 is DeckPanel }) as? DeckPanel)?.makeKeyAndOrderFront(nil)
 
             guard response == .OK else { return }
 

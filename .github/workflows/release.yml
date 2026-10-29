@@ -24,9 +24,15 @@ jobs:
           persist-credentials: false
       - name: Run Test Suites
         run: swift run VXDeckCoreTests
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install manifest signing dependency
+        run: python3 -m pip install 'cryptography==46.0.3'
       - name: Package Release Bundle & DMG
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
+          VXDECK_SIGNING_PRIVATE_KEY: ${{ secrets.VXDECK_SIGNING_PRIVATE_KEY }}
         run: |
           RAW_VER="${TAG#v}"
           ./scripts/package_release.sh "${RAW_VER}"
@@ -38,7 +44,7 @@ jobs:
           RAW_VER="${TAG#v}"
           NOTES_FILE="docs/release_notes/${RAW_VER}.md"
           if [ ! -f "${NOTES_FILE}" ]; then
-            NOTES_FILE="docs/release_notes/1.0.3.md"
+            NOTES_FILE="docs/release_notes/1.0.4.md"
           fi
           gh release create "${TAG}" \
             --draft \

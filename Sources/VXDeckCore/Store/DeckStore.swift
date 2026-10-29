@@ -20,13 +20,6 @@ public final class DeckStore: ObservableObject {
     @Published public var draggingCollectionId: UUID? = nil
     @Published public var currentDragSessionId: UUID? = nil
 
-    // Update availability
-    @Published public var hasUpdateAvailable: Bool = false
-    @Published public var latestVersionTag: String? = nil
-    @Published public var latestDmgURL: URL? = nil
-    @Published public var latestReleaseURL: URL? = nil
-    @Published public var latestReleaseNotes: String? = nil
-
     public private(set) var currentRevision: Int = 1
     private let configManager: ConfigManager
     private let appLauncher: AppLauncher
@@ -81,7 +74,7 @@ public final class DeckStore: ObservableObject {
                 try await configManager.saveConfig(snapshot, revision: rev)
             } catch {
                 await MainActor.run {
-                    self.showToast("Lỗi lưu cấu hình: \(error.localizedDescription)")
+                    self.showToast(localizedFormat("Lỗi lưu cấu hình: %@", error.localizedDescription))
                 }
                 throw error
             }
@@ -92,6 +85,17 @@ public final class DeckStore: ObservableObject {
         if let saveTask = currentSaveTask {
             _ = try? await saveTask.value
         }
+        await configManager.flush()
+    }
+
+    // Updating must not proceed with an unsaved configuration. Retry a fresh
+    // snapshot after earlier save failure so freeing disk space permits retry.
+    public func flushForUpdate() async throws {
+        if let saveTask = currentSaveTask {
+            _ = try? await saveTask.value
+        }
+        currentRevision += 1
+        try await configManager.saveConfig(config, revision: currentRevision)
         await configManager.flush()
     }
 
@@ -154,12 +158,12 @@ public final class DeckStore: ObservableObject {
         let url = URL(fileURLWithPath: path)
         // Strict verification: must be .app extension AND file must exist AND valid bundle
         guard url.pathExtension.lowercased() == "app" && FileManager.default.fileExists(atPath: path) else {
-            showToast("Chỉ chấp nhận các tệp ứng dụng .app hợp lệ")
+            showToast(localized("Chỉ chấp nhận các tệp ứng dụng .app hợp lệ"))
             return false
         }
 
         guard let bundle = Bundle(url: url) else {
-            showToast("Không thể đọc thông tin bundle ứng dụng")
+            showToast(localized("Không thể đọc thông tin bundle ứng dụng"))
             return false
         }
 
@@ -177,7 +181,7 @@ public final class DeckStore: ObservableObject {
         }
 
         if isDuplicate {
-            showToast("Ứng dụng '\(displayName)' đã có trong nhóm")
+            showToast(localizedFormat("Ứng dụng '%@' đã có trong nhóm", displayName))
             return false
         }
 
@@ -192,7 +196,7 @@ public final class DeckStore: ObservableObject {
         config.collections[colIndex].items.append(newItem)
         recalculateItemOrders(inCollectionIndex: colIndex)
         save()
-        showToast("Đã thêm \(displayName)")
+        showToast(localizedFormat("Đã thêm %@", displayName))
         return true
     }
 
@@ -204,7 +208,7 @@ public final class DeckStore: ObservableObject {
         config.collections[colIndex].items.remove(at: itemIndex)
         recalculateItemOrders(inCollectionIndex: colIndex)
         save()
-        showToast("Đã xóa \(name)")
+        showToast(localizedFormat("Đã xóa %@", name))
     }
 
     public func updateAppLabel(itemId: UUID, inCollectionId collectionId: UUID, customLabel: String?) {
@@ -223,7 +227,7 @@ public final class DeckStore: ObservableObject {
 
         let url = URL(fileURLWithPath: newPath)
         guard url.pathExtension.lowercased() == "app" && FileManager.default.fileExists(atPath: newPath) else {
-            showToast("Đường dẫn mới không phải là tệp .app hợp lệ")
+            showToast(localized("Đường dẫn mới không phải là tệp .app hợp lệ"))
             return false
         }
 
@@ -231,7 +235,7 @@ public final class DeckStore: ObservableObject {
         if let expectedBundleId = config.collections[colIndex].items[itemIndex].bundleId,
            let newBundleId = bundle?.bundleIdentifier,
            expectedBundleId != newBundleId {
-            showToast("Ứng dụng được chọn không khớp định danh với ứng dụng cũ")
+            showToast(localized("Ứng dụng được chọn không khớp định danh với ứng dụng cũ"))
             return false
         }
 
@@ -241,7 +245,7 @@ public final class DeckStore: ObservableObject {
             config.collections[colIndex].items[itemIndex].bundleId = newBundleId
         }
         save()
-        showToast("Đã định vị lại ứng dụng thành công")
+        showToast(localized("Đã định vị lại ứng dụng thành công"))
         return true
     }
 
@@ -339,7 +343,7 @@ public final class DeckStore: ObservableObject {
             // Re-insert into source if duplicate
             config.collections[sourceColIndex].items.insert(item, at: sourceItemIndex)
             recalculateItemOrders(inCollectionIndex: sourceColIndex)
-            showToast("Ứng dụng đã tồn tại ở nhóm đích")
+            showToast(localized("Ứng dụng đã tồn tại ở nhóm đích"))
             return
         }
 
@@ -394,7 +398,7 @@ public final class DeckStore: ObservableObject {
 
     public func createCollection(title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalTitle = trimmed.isEmpty ? "Bộ sưu tập mới" : trimmed
+        let finalTitle = trimmed.isEmpty ? localized("Bộ sưu tập mới") : trimmed
         let newCol = CollectionModel(
             title: finalTitle,
             displayOrder: config.collections.count,
@@ -403,13 +407,13 @@ public final class DeckStore: ObservableObject {
         config.collections.append(newCol)
         recalculateCollectionOrders()
         save()
-        showToast("Đã thêm nhóm '\(finalTitle)'")
+        showToast(localizedFormat("Đã thêm nhóm '%@'", finalTitle))
     }
 
     public func updateCollectionTitle(collectionId: UUID, title: String) {
         guard let index = config.collections.firstIndex(where: { $0.id == collectionId }) else { return }
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        config.collections[index].title = trimmed.isEmpty ? "Bộ sưu tập" : trimmed
+        config.collections[index].title = trimmed.isEmpty ? localized("Bộ sưu tập") : trimmed
         save()
     }
 
@@ -419,7 +423,7 @@ public final class DeckStore: ObservableObject {
         config.collections.remove(at: index)
         recalculateCollectionOrders()
         save()
-        showToast("Đã xóa nhóm '\(title)'")
+        showToast(localizedFormat("Đã xóa nhóm '%@'", title))
     }
 
     public func updateSettings(
@@ -427,8 +431,10 @@ public final class DeckStore: ObservableObject {
         columnsCount: Int? = nil,
         iconSize: Int? = nil,
         themeMode: String? = nil,
-        windowWidth: Double? = nil
+        windowWidth: Double? = nil,
+        language: String? = nil
     ) {
+        if let language { config.settings.language = language == "en" ? "en" : "vi" }
         if let autoHide = autoHideOnLaunch {
             config.settings.autoHideOnLaunch = autoHide
         }
@@ -456,9 +462,11 @@ public final class DeckStore: ObservableObject {
     }
 
     public func resetSettingsToDefaults() {
+        let language = config.settings.language
         config.settings = DeckSettings()
+        config.settings.language = language
         save()
-        showToast("Đã khôi phục cài đặt mặc định")
+        showToast(localized("Đã khôi phục cài đặt mặc định"))
     }
 
     private func recalculateCollectionOrders() {
@@ -484,34 +492,6 @@ public final class DeckStore: ObservableObject {
     }
 
     public func checkUpdateInBackground() {
-        Task {
-            // Đợi 2.5 giây sau khi mở app để khởi động hoàn toàn mượt mà
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.3"
-
-            if let latestURL = URL(string: "https://github.com/linhbv94/VXDeck/releases/latest/download/latest.json") {
-                var req = URLRequest(url: latestURL)
-                req.timeoutInterval = 6
-                if let (data, response) = try? await URLSession.shared.data(for: req),
-                   let http = response as? HTTPURLResponse, http.statusCode == 200,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let remoteVer = (json["version"] as? String) ?? (json["tag_name"] as? String)?.replacingOccurrences(of: "v", with: "") {
-                    if Self.isNewerVersion(remoteVer, than: currentVersion) {
-                        self.hasUpdateAvailable = true
-                        self.latestVersionTag = remoteVer
-                        if let html = json["html_url"] as? String, let u = URL(string: html) {
-                            self.latestReleaseURL = u
-                        }
-                        if let dmg = json["download_url"] as? String, let u = URL(string: dmg) {
-                            self.latestDmgURL = u
-                        }
-                        if let notes = json["notes"] as? String {
-                            self.latestReleaseNotes = notes
-                        }
-                        return
-                    }
-                }
-            }
-        }
+        AppUpdateController.shared.start()
     }
 }

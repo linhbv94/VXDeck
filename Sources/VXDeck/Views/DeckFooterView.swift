@@ -8,14 +8,14 @@ public struct DeckFooterView: View {
         HStack(spacing: 12) {
             // Shortcut Pills
             HStack(spacing: 8) {
-                ShortcutPill(key: "esc", label: store.isEditMode ? "Hoàn tất" : "Đóng")
-                ShortcutPill(key: "⌘E", label: store.isEditMode ? "Xong" : "Sửa")
+                ShortcutPill(key: "esc", label: store.isEditMode ? store.localized("Hoàn tất") : store.localized("Đóng"))
+                ShortcutPill(key: "⌘E", label: store.isEditMode ? store.localized("Xong") : store.localized("Sửa"))
             }
 
             Spacer()
 
             // Mode Hint Label
-            Text(store.isEditMode ? "Kéo để sắp xếp • Bấm (x) để xóa" : "Nhấp một chạm để mở app")
+            Text(store.isEditMode ? store.localized("Kéo để sắp xếp • Bấm (x) để xóa") : store.localized("Nhấp một chạm để mở app"))
                 .font(.system(size: 10, weight: .regular))
                 .foregroundColor(Color(red: 0.58, green: 0.64, blue: 0.72))
 
@@ -23,7 +23,7 @@ public struct DeckFooterView: View {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.left.and.right")
                     .font(.system(size: 8, weight: .semibold))
-                Text("Kéo viền đổi cỡ")
+                Text(store.localized("Kéo viền đổi cỡ"))
                     .font(.system(size: 9))
             }
             .foregroundColor(Color(red: 0.42, green: 0.48, blue: 0.55))

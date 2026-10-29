@@ -4,6 +4,7 @@ import VXDeckCore
 
 public struct DeckRootView: View {
     @EnvironmentObject var store: DeckStore
+    @ObservedObject private var updater = AppUpdateController.shared
     let onCloseRequested: () -> Void
     let onContentSizeChange: () -> Void
     let onHeightMeasured: (CGFloat) -> Void
@@ -54,6 +55,11 @@ public struct DeckRootView: View {
                     .padding(.top, 52)
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if updater.noticeVisible {
+                DeckUpdateCard(notice: true).environmentObject(store).frame(maxWidth: 384).padding(20)
+            }
+        }
         .frame(minWidth: 440, maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -93,23 +99,23 @@ public struct DeckRootView: View {
             newGroupTitle = ""
         }) {
             VStack(spacing: 16) {
-                Text("Tạo Bộ Sưu Tập Mới")
+                Text(store.localized("Tạo Bộ Sưu Tập Mới"))
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
 
-                TextField("Ví dụ: Thiết Kế, Lập Trình, Game...", text: $newGroupTitle)
+                TextField(store.localized("Ví dụ: Thiết Kế, Lập Trình, Game..."), text: $newGroupTitle)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 260)
 
                 HStack(spacing: 12) {
-                    Button("Hủy") {
+                    Button(store.localized("Hủy")) {
                         store.isModalOpen = false
                         store.showAddCollectionDialog = false
                         newGroupTitle = ""
                     }
                     .keyboardShortcut(.cancelAction)
 
-                    Button("Tạo") {
+                    Button(store.localized("Tạo")) {
                         store.isModalOpen = false
                         store.showAddCollectionDialog = false
                         store.createCollection(title: newGroupTitle)
@@ -156,23 +162,23 @@ public struct DeckRootView: View {
                 .font(.system(size: 36))
                 .foregroundColor(Color(red: 0.5, green: 0.55, blue: 0.65))
 
-            Text("Chưa có bộ sưu tập nào")
+            Text(store.localized("Chưa có bộ sưu tập nào"))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.white)
 
-            Text("Bật chế độ chỉnh sửa hoặc nhấn nút bên dưới để tạo nhóm ứng dụng đầu tiên của bạn.")
+            Text(store.localized("Bật chế độ chỉnh sửa hoặc nhấn nút bên dưới để tạo nhóm ứng dụng đầu tiên của bạn."))
                 .font(.system(size: 11))
                 .foregroundColor(Color(red: 0.6, green: 0.65, blue: 0.72))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
             Button(action: {
-                store.createCollection(title: "Ứng dụng Của Tôi")
+                store.createCollection(title: store.localized("Ứng dụng Của Tôi"))
                 store.setEditMode(true)
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
-                    Text("Tạo Nhóm Đầu Tiên")
+                    Text(store.localized("Tạo Nhóm Đầu Tiên"))
                 }
                 .font(.system(size: 12, weight: .semibold))
                 .padding(.horizontal, 14)
@@ -195,7 +201,7 @@ public struct DeckRootView: View {
             HStack(spacing: 8) {
                 Image(systemName: "plus.circle")
                     .font(.system(size: 14))
-                Text("Thêm Bộ sưu tập mới")
+                Text(store.localized("Thêm Bộ sưu tập mới"))
                     .font(.system(size: 12, weight: .medium))
             }
             .foregroundColor(Color(red: 0.6, green: 0.65, blue: 0.72))

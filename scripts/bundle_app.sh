@@ -5,10 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${PROJECT_DIR}"
+python3 "${SCRIPT_DIR}/check_settings_ui.py"
 
 APP_NAME="VXDeck"
 BUNDLE_ID="com.ztools.vxdeck"
-VERSION="${1:-1.0.3}"
+VERSION="${1:-1.0.4}"
 BUILD_DIR="${PROJECT_DIR}/build"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 CONTENTS_DIR="${APP_BUNDLE}/Contents"

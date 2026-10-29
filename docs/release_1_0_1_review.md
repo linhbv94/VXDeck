@@ -30,7 +30,7 @@
   5. `testIconProvider`: PASS
   6. `testSemVerComparison`: PASS
   7. `testAddAppAndImmediateReorderPersistence` & `testCollectionReordering`: PASS
-- `scripts/check_macos_sdk.py --artifact build/VXDeck.app`: PASS (SDK Baseline 27.0).
+- `_summary/standard_codes/check_macos_sdk.py --artifact build/VXDeck.app`: PASS (SDK Baseline 27.0).
 - `codesign --verify --deep --strict build/VXDeck.app`: PASS (`valid on disk`, `satisfies its Designated Requirement`).
 - Đóng gói DMG `vxdeck_1.0.1_macos_silicon.dmg` và manifest `latest.json`.
 

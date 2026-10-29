@@ -2,8 +2,8 @@
 
 > **Tên sản phẩm:** VXDeck (Lightweight Curated Application Launcher Popup)  
 > **Thư mục dự án:** `vxdeck`  
-> **Phiên bản tài liệu:** 1.0.0  
-> **Ngày cập nhật:** 2026-10-28  
+> **Phiên bản tài liệu:** 1.1.0
+> **Ngày cập nhật:** 2026-10-29
 > **Tài liệu liên quan:** [00_system_overview.md](00_system_overview.md) | [01_business_process.md](01_business_process.md) | [03_ui_wireframe.md](03_ui_wireframe.md)
 
 ---
@@ -185,11 +185,20 @@ stateDiagram-v2
 | `EDIT_ACTIVE` | Bấm nút Xong / `Cmd+E` | Đang ở edit mode | Bật lại auto-hide, tắt UI edit, ép `flush()` lưu đĩa | `VIEW_ACTIVE` |
 | `EDIT_ACTIVE` | Nhấn phím `Escape` | Đang ở edit mode | Thoát chế độ sửa về xem, ép `flush()` lưu đĩa | `VIEW_ACTIVE` |
 | `EDIT_ACTIVE` | Click ngoài cửa sổ | `is_modal_open == false` | **Bỏ qua sự kiện**, giữ nguyên cửa sổ phiên sửa | `EDIT_ACTIVE` |
-| `EDIT_ACTIVE` | Bấm nút `+ Thêm App` | Collection hợp lệ | Đặt `is_modal_open = true`, mở `NSOpenPanel` | `MODAL_OPEN` |
-| `MODAL_OPEN` | Bấm Open / Cancel | File picker kết thúc | Cập nhật store nếu có chọn, `is_modal_open = false`, đóng picker | `EDIT_ACTIVE` |
+| `EDIT_ACTIVE` | Bấm nút `+ Thêm App` | Collection hợp lệ | Đặt `is_modal_open = true`, mở `NSOpenPanel.beginSheetModal(for:)` gắn với `AppDelegate.panel` đang hiển thị | `MODAL_OPEN` |
+| `MODAL_OPEN` | Bấm Open / Cancel | File picker kết thúc | Chỉ cập nhật store khi Open; Cancel không đổi dữ liệu; xóa `is_modal_open`, trả focus về popup, giữ Edit Mode | `EDIT_ACTIVE` |
 | `EDIT_ACTIVE` | Nhấn giữ & Kéo thẻ | Khoảng cách kéo > 4pt | Bắt đầu DragSession với UTI `com.vxdeck.app-item` | `DRAGGING` |
 | `DRAGGING` | Thả chuột vị trí mới | Tọa độ trong drop area | Chạy transaction `reorder_items` trong store, lưu đĩa | `EDIT_ACTIVE` |
 | `DRAGGING` | Thả chuột ra ngoài | Tọa độ ngoài drop area | Hủy thao tác, icon lướt về vị trí cũ | `EDIT_ACTIVE` |
+
+---
+
+### 4.3. Browse trên popup nổi (feedback 2026-10-29)
+
+- Không mở Browse bằng `begin` độc lập: window level của popup nổi có thể che picker. Dùng sheet gắn đúng popup đang key, không nâng picker lên level toàn hệ thống.
+- Chặn mở thêm picker khi có modal/sheet; click ngoài không đóng popup trong phiên Browse. Reopen từ Dock khi có sheet phải đưa sheet lên trước.
+- Open thêm ứng dụng vào đúng collection và flush; Cancel/Escape không thay config. Cả hai trả focus về popup, giữ Edit Mode. Khi trở về View Mode, click ngoài vẫn ẩn popup như trước.
+- Không thay Settings, icon, titlebar hoặc updater trong thay đổi nghiệp vụ này.
 
 ---
 

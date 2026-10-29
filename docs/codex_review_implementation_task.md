@@ -49,7 +49,7 @@ Dự án **VXDeck** — bảng sưu tập ứng dụng nổi dạng popup (Curat
 ## 3. Bằng chứng kiểm chứng thực tế đã chạy
 1. `swift run VXDeckCoreTests`: Đạt 4/4 suites PASS (100%).
 2. `scripts/bundle_app.sh`: Build production thành công trong 0.31s (incremental) / 72s (clean).
-3. `python3 scripts/check_macos_sdk.py --artifact vxdeck/build/VXDeck.app`: Đạt `"baseline_sdk": "27.0"`, `"sdk_slices": ["27.0"]`, `"pass": true`.
+3. `python3 _summary/standard_codes/check_macos_sdk.py --artifact vxdeck/build/VXDeck.app`: Đạt `"baseline_sdk": "27.0"`, `"sdk_slices": ["27.0"]`, `"pass": true`.
 4. `codesign --verify --deep --strict vxdeck/build/VXDeck.app`: Đạt `valid on disk` và `satisfies its Designated Requirement`.
 5. `open vxdeck/build/VXDeck.app`: Khởi chạy live thành công (PID 17821), file `~/Library/Application Support/VXDeck/deck_config.json` sinh đúng 100% schema.
 

@@ -2,8 +2,8 @@
 
 > **Tên sản phẩm:** VXDeck (Lightweight Curated Application Launcher Popup)  
 > **Thư mục dự án:** `vxdeck`  
-> **Phiên bản tài liệu:** 1.0.0  
-> **Ngày cập nhật:** 2026-10-28  
+> **Phiên bản tài liệu:** 1.1.0
+> **Ngày cập nhật:** 2026-10-29
 > **Tài liệu nguồn phạm vi:** [VXDeck_MVP_Scope.md](../../VXDeck_MVP_Scope.md)  
 > **Tài liệu liên quan:** [00_system_overview.md](00_system_overview.md) | [02_feature_flow.md](02_feature_flow.md)
 
@@ -190,8 +190,11 @@ Scenario: Người dùng sắp xếp icon và nhấn Cmd+Q thoát app ngay trong
 | **EC-04** | Nhấp chuột rất nhanh (Rapid Click) vào thẻ app | Chỉ gửi 1 lệnh `openApplication` duy nhất, không kích hoạt app nhiều lần | CHƯA KIỂM THỬ |
 | **EC-05** | Tệp `deck_config.json` bị người dùng xóa thủ công ngoài Finder | Tự động tái tạo tệp mặc định mới với trạng thái rỗng mà không bị crash | CHƯA KIỂM THỬ |
 | **EC-06** | Thao tác kéo thả 10 lần liên tục trong 1 giây | Debounce 300ms gom các lượt cập nhật, chỉ ghi đĩa 1-2 lần, không nghẽn I/O | CHƯA KIỂM THỬ |
-| **EC-07** | Đang mở hộp thoại `NSOpenPanel` thì click ra ngoài | Hộp thoại modal giữ focus cho đến khi bấm Open hoặc Cancel; không tự đóng app | CHƯA KIỂM THỬ |
+| **EC-07** | Đang mở hộp thoại `NSOpenPanel` thì click ra ngoài | Hộp thoại còn mở cho đến khi bấm Open hoặc Cancel; không tự đóng popup khi click ngoài | PASS native fixture macOS 2026-10-29 |
 | **EC-08** | Chạy trên hệ thống nhiều màn hình (Dual Monitors) | Popup xuất hiện chính xác trên màn hình hiện tại đang có con trỏ chuột/Dock | CHƯA KIỂM THỬ |
+| **EC-09** | Edit → `+` trên popup floating | Browse là sheet phía trước, điều hướng thư mục/chọn app được; popup mẹ bị khóa trong phiên chọn | PASS native fixture macOS 2026-10-29 |
+| **EC-10** | Cancel/Escape hoặc Open trong Browse | Trả focus về popup, giữ Edit Mode; Cancel không đổi config, Open lưu đúng collection và readback sau reopen | PASS Cancel/Add/readback native fixture; Escape cần 2 lần trong luồng AX, chưa nghiệm thu 1 lần |
+| **EC-11** | Click Dock khi Browse đang mở; rồi đóng Browse, về View và click ngoài | Dock focus sheet đang có, không tạo picker thứ hai; sau khi về View, click ngoài vẫn ẩn popup | PASS click ngoài View; Dock CHƯA KIỂM THỬ (CUA timeout) |
 
 ---
 

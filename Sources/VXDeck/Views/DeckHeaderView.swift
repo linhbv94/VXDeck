@@ -3,12 +3,13 @@ import VXDeckCore
 
 public struct DeckHeaderView: View {
     @EnvironmentObject var store: DeckStore
+    @ObservedObject private var updater = AppUpdateController.shared
 
     public var body: some View {
         HStack(spacing: 12) {
             // Brand Logo & Title
             HStack(spacing: 8) {
-                Image(systemName: "bolt.fill")
+                Image(systemName: "square.grid.2x2.fill")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.cyan)
 
@@ -17,7 +18,7 @@ public struct DeckHeaderView: View {
                     .foregroundColor(.white)
 
                 if store.isEditMode {
-                    Text("• Chế độ sửa")
+                    Text(store.localized("• Chế độ sửa"))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.cyan)
                 }
@@ -35,7 +36,7 @@ public struct DeckHeaderView: View {
                         HStack(spacing: 5) {
                             Image(systemName: "plus")
                                 .font(.system(size: 11, weight: .bold))
-                            Text("Nhóm mới")
+                            Text(store.localized("Nhóm mới"))
                                 .font(.system(size: 11, weight: .medium))
                         }
                         .padding(.horizontal, 10)
@@ -47,7 +48,7 @@ public struct DeckHeaderView: View {
                         .foregroundColor(Color(red: 0.85, green: 0.9, blue: 0.95))
                     }
                     .buttonStyle(.plain)
-                    .help("Tạo nhóm bộ sưu tập mới")
+                    .help(store.localized("Tạo nhóm bộ sưu tập mới"))
                 }
 
                 // Edit Mode Toggle Button
@@ -57,7 +58,7 @@ public struct DeckHeaderView: View {
                     HStack(spacing: 5) {
                         Image(systemName: store.isEditMode ? "checkmark" : "pencil")
                             .font(.system(size: 11, weight: .semibold))
-                        Text(store.isEditMode ? "Hoàn tất" : "Chỉnh sửa")
+                        Text(store.isEditMode ? store.localized("Hoàn tất") : store.localized("Chỉnh sửa"))
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .padding(.horizontal, 10)
@@ -69,7 +70,7 @@ public struct DeckHeaderView: View {
                     .foregroundColor(store.isEditMode ? .black : Color(red: 0.85, green: 0.9, blue: 0.95))
                 }
                 .buttonStyle(.plain)
-                .help(store.isEditMode ? "Hoàn tất chỉnh sửa [⌘E]" : "Bật chế độ chỉnh sửa [⌘E]")
+                .help(store.isEditMode ? store.localized("Hoàn tất chỉnh sửa [⌘E]") : store.localized("Bật chế độ chỉnh sửa [⌘E]"))
 
                 // Settings Button
                 Button(action: {
@@ -86,7 +87,7 @@ public struct DeckHeaderView: View {
                             )
                             .foregroundColor(Color(red: 0.85, green: 0.9, blue: 0.95))
 
-                        if store.hasUpdateAvailable {
+                        if updater.noticeVisible {
                             Circle()
                                 .fill(Color.cyan)
                                 .frame(width: 7, height: 7)
@@ -95,7 +96,7 @@ public struct DeckHeaderView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .help(store.hasUpdateAvailable ? "Có bản cập nhật mới! Cài đặt & Giới thiệu [⌘,]" : "Cài đặt & Giới thiệu [⌘,]")
+                .help(updater.noticeVisible ? store.localized("Có bản cập nhật mới! Cài đặt & Giới thiệu [⌘,]") : store.localized("Cài đặt & Giới thiệu [⌘,]"))
             }
         }
         .frame(height: 44)

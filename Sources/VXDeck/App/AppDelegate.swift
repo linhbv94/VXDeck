@@ -50,7 +50,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if let panel = panel, panel.isVisible {
             if DeckStore.shared.isModalOpen {
-                panel.makeKeyAndOrderFront(nil)
+                (panel.attachedSheet ?? panel).makeKeyAndOrderFront(nil)
                 return true
             }
             panel.hidePanel()

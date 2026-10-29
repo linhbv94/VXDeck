@@ -28,7 +28,7 @@ public struct CollectionSectionView: View {
             // Header: Title & Actions
             HStack(spacing: 8) {
                 if isEditingTitle {
-                    TextField("Tên nhóm", text: $titleDraft, onCommit: {
+                    TextField(store.localized("Tên nhóm"), text: $titleDraft, onCommit: {
                         store.updateCollectionTitle(collectionId: collection.id, title: titleDraft)
                         isEditingTitle = false
                     })
@@ -69,7 +69,7 @@ public struct CollectionSectionView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(isFirstCollection)
-                        .help("Di chuyển nhóm lên trên")
+                        .help(store.localized("Di chuyển nhóm lên trên"))
 
                         Button(action: {
                             store.moveCollectionDown(collectionId: collection.id)
@@ -81,7 +81,7 @@ public struct CollectionSectionView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(isLastCollection)
-                        .help("Di chuyển nhóm xuống dưới")
+                        .help(store.localized("Di chuyển nhóm xuống dưới"))
 
                         Button(action: {
                             if isEditingTitle {
@@ -98,7 +98,7 @@ public struct CollectionSectionView: View {
                                 .padding(4)
                         }
                         .buttonStyle(.plain)
-                        .help(isEditingTitle ? "Lưu tên mới" : "Đổi tên nhóm")
+                        .help(isEditingTitle ? store.localized("Lưu tên mới") : store.localized("Đổi tên nhóm"))
 
                         Button(action: {
                             store.isModalOpen = true
@@ -110,17 +110,17 @@ public struct CollectionSectionView: View {
                                 .padding(4)
                         }
                         .buttonStyle(.plain)
-                        .help("Xóa nhóm này")
-                        .alert("Xóa nhóm '\(collection.title)'?", isPresented: $showDeleteConfirm) {
-                            Button("Xóa", role: .destructive) {
+                        .help(store.localized("Xóa nhóm này"))
+                        .alert(store.localizedFormat("Xóa nhóm '%@'?", collection.title), isPresented: $showDeleteConfirm) {
+                            Button(store.localized("Xóa"), role: .destructive) {
                                 store.isModalOpen = false
                                 store.deleteCollection(collectionId: collection.id)
                             }
-                            Button("Hủy", role: .cancel) {
+                            Button(store.localized("Hủy"), role: .cancel) {
                                 store.isModalOpen = false
                             }
                         } message: {
-                            Text("Tất cả lối tắt ứng dụng trong nhóm này sẽ bị xóa khỏi VXDeck (không xóa ứng dụng gốc trên máy).")
+                            Text(store.localized("Tất cả lối tắt ứng dụng trong nhóm này sẽ bị xóa khỏi VXDeck (không xóa ứng dụng gốc trên máy)."))
                         }
                     }
                 }

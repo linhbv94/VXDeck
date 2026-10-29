@@ -6,7 +6,7 @@
 > **Ngày cập nhật:** 2026-10-28  
 > **Nền tảng mục tiêu:** macOS (Apple Silicon & Intel) — macOS 14.0+ (Tối ưu hóa sâu cho macOS 26 / SDK 27.0)  
 > **Tài liệu nguồn phạm vi (Scope Source of Truth):** [VXDeck_MVP_Scope.md](../../VXDeck_MVP_Scope.md)  
-> **Quy chuẩn tuân thủ:** [desktop_ui_standards.md](../../../.agents/desktop_ui_standards.md) và [master_theme.md](../../../_summary/master_theme.md)
+> **Quy chuẩn tuân thủ:** [desktop_ui_standards.md](../../../_summary/standard_docs/desktop_ui_standards.md) và [master_theme.md](../../../_summary/standard_docs/master_theme.md)
 
 ---
 

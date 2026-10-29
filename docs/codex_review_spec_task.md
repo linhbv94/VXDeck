@@ -6,7 +6,7 @@ Tuân thủ AGENTS.md, tiếng Việt chuyên nghiệp, UTF-8, snake_case và tu
 ## 1. Bối cảnh dự án
 Dự án **VXDeck** — bảng sưu tập ứng dụng nổi dạng popup (Curated Application Launcher Board) dành riêng cho macOS (Apple Silicon & Intel).
 - Tài liệu phạm vi gốc (Single Source of Scope): `vxdeck/VXDeck_MVP_Scope.md`.
-- Quy chuẩn thiết kế giao diện: `.agents/desktop_ui_standards.md` và `_summary/master_theme.md`.
+- Quy chuẩn thiết kế giao diện: `_summary/standard_docs/desktop_ui_standards.md` và `_summary/standard_docs/master_theme.md`.
 
 Bộ tài liệu đặc tả (Docs / Spec Suite) gồm 7 tài liệu tại thư mục `vxdeck/docs/spec/`:
 - `vxdeck/docs/spec/00_system_overview.md`: Tổng quan hệ thống, tôn chỉ sản phẩm (không cạnh tranh Spotlight/Launchpad, curated collection board nổi), ma trận độ khó kỹ thuật, ngăn xếp công nghệ Swift 6 + SwiftUI + AppKit NSPanel, cây thư mục dự án và lộ trình Vertical Slice.

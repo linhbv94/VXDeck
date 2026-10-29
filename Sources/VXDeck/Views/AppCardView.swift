@@ -100,7 +100,7 @@ public struct AppCardView: View {
                 }
                 .buttonStyle(.plain)
                 .offset(x: 6, y: -6)
-                .help("Xóa ứng dụng này khỏi nhóm")
+                .help(store.localized("Xóa ứng dụng này khỏi nhóm"))
             }
         }
         .frame(width: 52, height: 52)
@@ -109,7 +109,7 @@ public struct AppCardView: View {
     @ViewBuilder
     private var labelContentView: some View {
         if isEditingLabel {
-            TextField("Tên hiển thị", text: $labelText, onCommit: {
+            TextField(store.localized("Tên hiển thị"), text: $labelText, onCommit: {
                 store.updateAppLabel(itemId: item.id, inCollectionId: collectionId, customLabel: labelText.isEmpty ? nil : labelText)
                 isEditingLabel = false
             })
@@ -150,21 +150,21 @@ public struct AppCardView: View {
     @ViewBuilder
     private var contextMenuButtons: some View {
         if !store.isEditMode && item.isAvailable {
-            Button("Khởi chạy") {
+            Button(store.localized("Khởi chạy")) {
                 launchApp()
             }
         }
         if !item.isAvailable {
-            Button("Định vị lại ứng dụng...") {
+            Button(store.localized("Định vị lại ứng dụng...")) {
                 relinkApp()
             }
         }
-        Button("Đổi tên hiển thị...") {
+        Button(store.localized("Đổi tên hiển thị...")) {
             labelText = item.customLabel ?? item.name
             isEditingLabel = true
         }
         Divider()
-        Button("Hiện trong Finder") {
+        Button(store.localized("Hiện trong Finder")) {
             let resolvedURL = AppLauncher.shared.resolveTargetURL(for: item) ?? URL(fileURLWithPath: item.path)
             NSWorkspace.shared.activateFileViewerSelecting([resolvedURL])
         }
@@ -172,16 +172,16 @@ public struct AppCardView: View {
         Button(role: .destructive, action: {
             store.removeApp(itemId: item.id, fromCollectionId: collectionId)
         }) {
-            Text("Xóa khỏi nhóm")
+            Text(store.localized("Xóa khỏi nhóm"))
         }
     }
 
     private func relinkApp() {
         store.isModalOpen = true
         let openPanel = NSOpenPanel()
-        openPanel.title = "Định vị lại ứng dụng '\(item.displayName)'"
-        openPanel.message = "Chọn tệp ứng dụng .app thay thế trên ổ đĩa"
-        openPanel.prompt = "Chọn"
+        openPanel.title = store.localizedFormat("Định vị lại ứng dụng '%@'", item.displayName)
+        openPanel.message = store.localized("Chọn tệp ứng dụng .app thay thế trên ổ đĩa")
+        openPanel.prompt = store.localized("Chọn")
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
         openPanel.treatsFilePackagesAsDirectories = false
@@ -205,7 +205,7 @@ public struct AppCardView: View {
     private func launchApp() {
         guard !store.isEditMode else { return }
         guard item.isAvailable else {
-            store.showToast("Ứng dụng không tồn tại: \(item.path)")
+            store.showToast(store.localizedFormat("Ứng dụng không tồn tại: %@", item.path))
             return
         }
 
@@ -225,7 +225,7 @@ public struct AppCardView: View {
                     onLaunchRequested()
                 }
             } catch {
-                store.showToast("Không thể mở: \(error.localizedDescription)")
+                store.showToast(store.localizedFormat("Không thể mở: %@", error.localizedDescription))
             }
         }
     }

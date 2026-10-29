@@ -2,9 +2,9 @@
 
 > **Tên sản phẩm:** VXDeck (Lightweight Curated Application Launcher Popup)  
 > **Thư mục dự án:** `vxdeck`  
-> **Phiên bản tài liệu:** 1.0.0  
-> **Ngày cập nhật:** 2026-10-28  
-> **Quy chuẩn tuân thủ:** [desktop_ui_standards.md](../../../.agents/desktop_ui_standards.md) và [master_theme.md](../../../_summary/master_theme.md)  
+> **Phiên bản tài liệu:** 1.1.0  
+> **Ngày cập nhật:** 2026-10-29  
+> **Quy chuẩn tuân thủ:** [desktop_ui_standards.md](../../../_summary/standard_docs/desktop_ui_standards.md) và [master_theme.md](../../../_summary/standard_docs/master_theme.md)  
 > **Tài liệu liên quan:** [00_system_overview.md](00_system_overview.md) | [02_feature_flow.md](02_feature_flow.md)
 
 ---
@@ -156,7 +156,7 @@ DeckPanel (AppKit Custom NSPanel)
 
 ## 4. Bảng Tokens Thiết Kế & Màu Sắc Hệ Thống
 
-Tuân thủ nghiêm ngặt theo [master_theme.md](../../../_summary/master_theme.md) và phong cách chung của bộ tiện ích VXUtilities:
+Tuân thủ nghiêm ngặt theo [master_theme.md](../../../_summary/standard_docs/master_theme.md) và phong cách chung của bộ tiện ích VXUtilities:
 
 ### 4.1. Màu sắc Bề mặt & Viền (Surfaces & Borders)
 
@@ -220,3 +220,36 @@ Each app card is 96px wide, featuring a 48x48px native Retina icon with subtle h
 
 At the bottom is a discreet 28px footer displaying minimalist shortcut hints: [esc] Close, [Cmd+E] Edit, 'Click once to launch'. Ultra-clean desktop density, Cupertino design philosophy, zero visual clutter.
 ```
+
+
+## Đồng bộ UI suite — Codex tiếp quản ngày2026-10-29
+
+Theo [Settings](../../../_summary/standard_docs/settings_standards.md), [song ngữ](../../../_summary/standard_docs/bilingual_standards.md) và [updater](../../../_summary/standard_docs/auto_update_standards.md). Mục này cập nhật các mô tả cũ trái ranh giới General; không thay engine hoặc tự đánh dấu Specs ready/QA/release.
+
+| Tab / surface | Key / owner | Capability, apply và persist |
+|---|---|---|
+| Chung | `DeckSettings.themeMode` | Hiển thị Dark hiện hành; không tạo4mode giả khi shell chỉ có Dark |
+| Chung | `DeckSettings.language` | vi/en; Codable backward-compatible, persist trong config; đổi language không reset collection/data |
+| Cửa sổ & khởi chạy | `autoHideOnLaunch`, `windowWidth` | Giữ popup click ngoài ẩn và resize; tách khỏi General |
+| Updates | `AppUpdateController.shared` | Settings/notice/header cùng owner process; bỏ checker GitHubAPI/DMG unsigned trong Settings/DeckStore |
+
+Settings header56/sidebar192/footer56, body scroll; About tên/version/tác giả/GitHub + mô tả ngắn; Support chỉ QR đóng gói hoặc placeholder, không đọc đường dẫn source máy dev. Notice trong popup góc dưới phải20/max384, job không phụ thuộc popup; install flush store và controller handoff/quit sauACK. Không thêm titlebar/menubar cho Deck. Bản dịch shell/Settings theo locale store; dynamic UI copy dùng localizedFormat theo instance store và giữ nguyên arguments user; native popup/updater E2E còn cần audit, không chứng nhận BI đầy đủ.
+
+Bằng chứng/checks và giới hạn: [báo cáo Codex](../../../_summary/agents_handoff/suite_ui_codex_20261029_result.md). ST/BI/AU/TB native acceptance chỉ đạt khi có evidence phù hợp; source/build không tự đạt runtime.
+
+### QA correction2026-10-29
+
+Updater prepare gọi `try await store.flushForUpdate()` để chặn cài khi không ghi được preference. Thử lại sau khi lỗi lưu được khắc phục phải lưu snapshot mới và giữ draft/language. `flush()` best-effort dùng ở luồng cũ không phải bằng chứng đã lưu thành công cho updater. Chưa publish; native popup và handoff/readback còn QA riêng.
+
+## Cập nhật Feedback 2026-10-29 (Anti UI)
+- Glyph Header: Đổi icon tia sét (`bolt.fill`) sang icon bộ sưu tập ứng dụng (`square.grid.2x2.fill`).
+- Settings Title: Bỏ icon bánh răng ở tiêu đề, hiển thị dạng text thuần 'Cài đặt VXDeck' / 'VXDeck Settings'.
+
+
+
+## Feedback20261029 — component Settings theo Media
+
+- [Hợp đồng chung](../../../_summary/standard_docs/settings_standards.md) và [nguồn component](../../../_summary/standard_codes/settings_ui/index.md) là nguồn chuẩn; không dùng ghi nhận "chỉ đổi header" ở lượt Anti đầu làm nghiệm thu các panel.
+- Title VXabc Settings, không gear. General Theme→Language, Updates/banner+state, About/identity+GitHub+description, Support/banner+copy Media+QR. Chỉ mode theme thật; dữ liệu/config/updater job giữ owner hiện có.
+- DevSync vendor webview helper + copy sinh + cùng CSS; Deck vendor helper SwiftUI + copy sinh, giữ popup và business bindings. Manifest và gate trước packaging bắt lỗi lệch nguồn.
+- Native visual, entry point, min-size/scroll/keyboard và update E2E cần evidence riêng; build/hash không tự đạt. Windows giữ SVG+tên rồi menu trái, gear trước đúng một cụm controls phải. Deck không thêm shell/menu không cần thiết.

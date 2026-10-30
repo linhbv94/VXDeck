@@ -56,7 +56,7 @@ public final class AppUpdateController: ObservableObject {
                 phase: { phase in Task { @MainActor in self.status = phase } })
             status = "handed_off"
             // Helper has durably acknowledged and verified the staged bundle before quit.
-            NSApp.terminate(nil)
+            UpdateApplicationTermination.request()
             try? await Task.sleep(for: .seconds(35))
             if await AppUpdater.shared.recoverExpiredHandoff() {
                 status = "error"; error = "update_parent_exit_timeout"; noticeVisible = true

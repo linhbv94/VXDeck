@@ -139,6 +139,11 @@ public struct DeckRootView: View {
             })
             .environmentObject(store)
         }
+        .onReceive(NotificationCenter.default.publisher(for: UpdateApplicationTermination.willTerminate)) { _ in
+            store.showSettingsModal = false
+            store.showAddCollectionDialog = false
+            store.isModalOpen = false
+        }
         .onPreferenceChange(ContentHeightPreferenceKey.self) { measuredHeight in
             guard measuredHeight > 20 else { return }
             let totalHeight = measuredHeight + 44 + 28

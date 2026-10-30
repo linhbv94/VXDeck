@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${PROJECT_DIR}"
 
-VERSION="${1:-1.0.4}"
+VERSION="${1:-1.0.5}"
 APP_NAME="VXDeck"
 BUILD_DIR="${PROJECT_DIR}/build"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"

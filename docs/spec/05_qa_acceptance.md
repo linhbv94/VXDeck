@@ -2,8 +2,8 @@
 
 > **Tên sản phẩm:** VXDeck (Lightweight Curated Application Launcher Popup)  
 > **Thư mục dự án:** `vxdeck`  
-> **Phiên bản tài liệu:** 1.1.0
-> **Ngày cập nhật:** 2026-10-29
+> **Phiên bản tài liệu:** 1.2.0
+> **Ngày cập nhật:** 2026-10-30
 > **Tài liệu nguồn phạm vi:** [VXDeck_MVP_Scope.md](../../VXDeck_MVP_Scope.md)  
 > **Tài liệu liên quan:** [00_system_overview.md](00_system_overview.md) | [02_feature_flow.md](02_feature_flow.md)
 
@@ -232,3 +232,9 @@ Scenario: Người dùng sắp xếp icon và nhấn Cmd+Q thoát app ngay trong
 - [ ] Kéo thả sắp xếp thứ tự trong cùng nhóm và chuyển nhóm hoạt động mượt mà.
 - [ ] Khởi động lại máy hoặc tắt mở lại app: Toàn bộ thứ tự sắp xếp được giữ nguyên 100%.
 - [ ] Xóa shortcut và xóa Collection không làm mất bất kỳ tệp ứng dụng gốc nào trên máy.
+
+## Hồi quy updater từ Settings (2026-10-30)
+
+- AU-10/AU-13: Settings mở → Update → flush → stage xác minh và helper ACK → kết thúc sheet → thoát qua AppKit/application delegate. Helper không phải chờ hết hạn vì sheet chặn quit.
+- Notice dùng cùng controller; không có sheet vẫn thoát qua cùng đường. Prepare/download/verify lỗi không đóng Settings hoặc mất dữ liệu.
+- Native termination fixture kiểm riêng nguyên nhân `update_parent_exit_timeout`; signed install/restart/readback N→N+1 cần QA gói thật.

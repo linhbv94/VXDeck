@@ -1,6 +1,6 @@
 # Chuẩn hóa engine updater VXDeck
 
-Version: 1.0.0 — Ngày update: 2026-10-29
+Version: 1.1.0 — Ngày update: 2026-10-30
 
 Track chỉnh sửa sau update/release. [Contract chung](../../_summary/standard_docs/auto_update_standards.md); ngoại lệ Deck chỉ ở shell popup, không miễn updater.
 
@@ -16,3 +16,11 @@ Track chỉnh sửa sau update/release. [Contract chung](../../_summary/standard
 
 ## Evidence
 CoreTests và security tests (manifest/tamper/wrong key/app/URL/arch/version) đã PASS; helper4tests dùng filesystem/codesign thật trên bundle fixture, launcher thay true/false để thử giữ backup, rollback, tamper sauACK và changedtarget. **Không thay native GUI/updateE2E**. Chưa xác nhận public signed manifest hoặc app đã cài. UI store/Settings checker cũ cần Anti chuyển sang shared controller, không coi engine source mới đã đủ AU-01…AU-16.
+
+## Settings sheet và bàn giao thoát app (2026-10-30)
+
+- Hai entry Settings/notice tiếp tục dùng cùng controller, single-flight và flush trước cài.
+- Sau helper ACK, `UpdateApplicationTermination.request` phát tín hiệu để root tắt binding Settings/dialog, kết thúc sheet còn gắn và unwind modal session nếu có. Chờ AppKit tháo sheet thực sự (tối đa5s), rồi yêu cầu `NSApp.terminate`. Không force-exit; vẫn qua application delegate. Hết hạn vẫn giữ watchdog/recovery của helper, không giả thành công.
+- Không đóng Settings khi kiểm tra/tải/xác minh hoặc prepare/stage lỗi. Chỉ tháo modal sau ACK; giữ nguyên trust/receipt/rollback và timeout.
+- Hồi quy native: `python3 scripts/test_update_termination.py` tạo floating NSPanel với SwiftUI Settings sheet thật, đối chiếu terminate cũ, notice đã đóng Settings và Settings sau sửa. Fixture không tải/swap app thật, không thay signed update E2E N→N+1.
+- Kết quả2026-10-30: baseline còn chạy và delegate không được gọi; notice và Settings sau sửa đều kết thúc qua delegate đúng1lần. Source build/core/security/SDK được lưu riêng trong báo cáo task.
